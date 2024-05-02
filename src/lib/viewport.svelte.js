@@ -215,12 +215,20 @@ export class Viewport {
         return clamp2D(this.min, this.max, xy)
     }
 
-    *linspaceX() {
-        yield* linspace(this.visibleMin.x, this.visibleMax.x, this.visibleWidth)
+    clampVisibleX(v) {
+        return clamp(this.visibleMin.x, this.visibleMax.x, v)
     }
 
-    *linspaceY() {
-        yield* linspace(this.visibleMin.y, this.visibleMax.y, this.visibleHeight)
+    clampVisibleY(v) {
+        return clamp(this.visibleMin.y, this.visibleMax.y, v)
+    }
+
+    *linspaceX(padding) {
+        yield* linspace(this.visibleMin.x+padding, this.visibleMax.x-padding, this.visibleWidth)
+    }
+
+    *linspaceY(padding) {
+        yield* linspace(this.visibleMin.y+padding, this.visibleMax.y-padding, this.visibleHeight)
     }
 }
 
