@@ -180,7 +180,7 @@ export class Viewport {
     }
 
     delegate(fn) {
-        return (evt) => fn(this.eventToSVG(evt, evt.currentTarget.ownerSVGElement), evt)
+        return (evt) => fn(this.eventToSVG(evt, evt.currentTarget.ownerSVGElement), evt, this)
     }
 
     get visibleMin() {
@@ -214,6 +214,44 @@ export class Viewport {
     clampViewbox(xy) {
         return clamp2D(this.min, this.max, xy)
     }
+
+    *linspaceX() {
+        yield* linspace(this.visibleMin.x, this.visibleMax.x, this.visibleWidth)
+    }
+
+    *linspaceY() {
+        yield* linspace(this.visibleMin.y, this.visibleMax.y, this.visibleHeight)
+    }
+}
+
+
+
+function lerp(a,b,t) {
+    return (1-t)*a + t*b
+}
+
+function* linspace(a,b,c) {
+    for(let i=0;i<=c;i++) {
+        yield lerp(a,b,i/c)
+    }
+}
+
+function* map(gen, fn) {
+    for(const v of gen) {
+        yield fn(v)
+    }
+}
+
+function join(sep, gen) {
+    let result = ''
+    for(const v of gen) {
+        if(result !== '') {
+            result += sep
+        }
+        result += v
+    }
+
+    return result
 }
 
 function clamp2D(min, max, xy) {
