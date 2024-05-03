@@ -122,5 +122,11 @@ export class AABB2 {
         this.#end.y += dy
     }
 
+    setMinAndSize(minX, minY, width, height) {
+        this.#start.x = minX
+        this.#start.y = minY
+        this.#end.x = minX + width
+        this.#end.y = minY + height
+    }
     
 }
