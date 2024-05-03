@@ -1,3 +1,5 @@
+import * as view from './viewport.js'
+
 const aspectRegExp = new RegExp("^x(?<x>M(?:in|id|ax))Y(?<y>M(?:in|id|ax))(?:\\s+(?<scale>meet|slice|none))$")
 
 export class Viewport {

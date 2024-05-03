@@ -208,7 +208,7 @@
     
     <Canvas preserveAspectRatio="xMidYMid slice">
         {#snippet children(v, ready)}
-        <circle  fill="purple" cursor="move" cx={mean} cy={stdDev} r="20"></circle>
+        <circle onpointermove={v.delegate(move)} onpointerup={v.delegate(release)} onpointerdown={v.delegate(pressMean)}  fill="purple" cursor="move" cx={mean} cy={stdDev} r="20"></circle>
         {/snippet}
     </Canvas>
 </div>
