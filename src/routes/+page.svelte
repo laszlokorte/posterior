@@ -27,6 +27,52 @@
         max: 100,
     })
 
+    let parameterPriorDistTypes = $state({
+        mean: 'gauss',
+        scale: 'gauss',
+        variance: 'gauss',
+        min: 'gauss',
+        max: 'gauss',
+    })
+
+    let parameterPriorDistParams = $state({
+        mean: {
+            mean: 0,
+            scale: 30,
+            variance: 900,
+            min: -100,
+            max: 100,
+        },
+        scale: {
+            mean: 0,
+            scale: 30,
+            variance: 900,
+            min: -100,
+            max: 100,
+        },
+        variance: {
+            mean: 0,
+            scale: 30,
+            variance: 900,
+            min: -100,
+            max: 100,
+        },
+        min: {
+            mean: 0,
+            scale: 30,
+            variance: 900,
+            min: -100,
+            max: 100,
+        },
+        max: {
+            mean: 0,
+            scale: 30,
+            variance: 900,
+            min: -100,
+            max: 100,
+        },
+    })
+
     let samples = $state([])
     let sampleColors = $state([
         '#2f4f4f','#006400','#b8860b','#4b0082',
@@ -60,7 +106,7 @@
 
     function move(local, evt, vp) {
         if(pressedParameter !== null) {
-            parameterValues[pressedParameter] = parameters[pressedParameter].clampProject(parameterValues, local.x)
+            parameterValues[pressedParameter] = parameters[pressedParameter].clampProject(parameterValues, local.x - parameters[pressedParameter].renderOffset(parameterValues))
         }
     }
 
@@ -70,8 +116,15 @@
 
     const parameters = {
         mean: {
+            color: 'magenta',
             default: 0,
             handles: [meanHandle],
+            renderOffset(all) {
+                return 0
+            },
+            renderProject(v) {
+                return v
+            },
             clampProject(all, newVal) {
                 return newVal
             },
@@ -89,9 +142,16 @@
             }
         },
         variance: {
+            color: 'cyan',
             default: 10,
+            renderOffset(all) {
+                return all.mean
+            },
+            renderProject(v) {
+                return Math.sqrt(v)
+            },
             clampProject(all, newVal) {
-                return Math.pow(newVal-all.mean, 2)
+                return Math.pow(newVal, 2)
             },
             handles: [varianceHandle],
             symbol: '𝜎²',
@@ -108,9 +168,16 @@
             }
         },
         scale: {
+            color: 'orange',
             default: 1,
+            renderOffset(all) {
+                return all.mean
+            },
+            renderProject(v) {
+                return v
+            },
             clampProject(all, newVal) {
-                return Math.abs(newVal-all.mean)
+                return Math.abs(newVal)
             },
             handles: [scaleHandle],
             symbol: 's',
@@ -127,7 +194,14 @@
             }
         },
         min: {
+            color: 'purple',
             default: -1,
+            renderOffset(all) {
+                return 0
+            },
+            renderProject(v) {
+                return v
+            },
             clampProject(all, newVal) {
                 return Math.min(all.max, newVal)
             },
@@ -146,7 +220,14 @@
             },
         },
         max: {
+            color: 'teal',
             default: 1,
+            renderOffset(all) {
+                return 0
+            },
+            renderProject(v) {
+                return v
+            },
             clampProject(all, newVal) {
                 return Math.max(all.min, newVal)
             },
@@ -223,11 +304,11 @@
     let currentParameters = $derived(distributions[distType].parameters)
     let currentPdf = $derived(logScale ? distributions[distType].logPdf : distributions[distType].pdf)
 
-    function updateSlider(paramName) {
+    function updateSlider(paramName, valueBag) {
         return (evt) => {
-            const newVal = parameters[paramName].slider.project(parameterValues, evt.currentTarget.value);
+            const newVal = parameters[paramName].slider.project(valueBag, evt.currentTarget.value);
             evt.currentTarget.value = newVal
-            parameterValues[paramName] = newVal
+            valueBag[paramName] = newVal
         }
     }
 </script>
@@ -322,29 +403,30 @@
     </g>
 {/snippet}
 
-{#snippet varianceHandle(viewBox, paramName, variance, otherParams)}
+{#snippet varianceHandle(viewBox, paramName, variance, relativeOffset)}
     {@const adapter = viewBox.svgAdapter}             
-    <line stroke-dasharray="3 3" stroke-dashoffset={-Math.sqrt(variance)} stroke="black" x1={otherParams.mean-Math.sqrt(variance)} x2={otherParams.mean+Math.sqrt(variance)} y1={60} y2={60} />
+    <line stroke="black" x1={relativeOffset} x2={relativeOffset} y1={65} y2={55} />
+    <line stroke-dasharray="3 3" stroke-dashoffset={-Math.sqrt(variance)} stroke="black" x1={relativeOffset-Math.sqrt(variance)} x2={relativeOffset+Math.sqrt(variance)} y1={60} y2={60} />
     <g>
-        <circle class="handle" onpointermove={adapter.delegate(move)} onpointerup={adapter.delegate(release)} onpointerdown={adapter.delegate(pressParameter, paramName)} class:state-active={pressedParameter==paramName} fill={currentDistribution.color} cursor="move" cx={otherParams.mean - Math.sqrt(variance)} cy={60} r="10"></circle>
+        <circle class="handle" onpointermove={adapter.delegate(move)} onpointerup={adapter.delegate(release)} onpointerdown={adapter.delegate(pressParameter, paramName)} class:state-active={pressedParameter==paramName} fill={currentDistribution.color} cursor="move" cx={relativeOffset - Math.sqrt(variance)} cy={60} r="10"></circle>
     </g>
     <g>
-        <circle class="handle" onpointermove={adapter.delegate(move)} onpointerup={adapter.delegate(release)} onpointerdown={adapter.delegate(pressParameter, paramName)} class:state-active={pressedParameter==paramName} fill={currentDistribution.color} cursor="move" cx={otherParams.mean + Math.sqrt(variance)} cy={60} r="10"></circle>
-        <text font-size="0.8em" class="label-text" x={otherParams.mean+Math.sqrt(variance)} y={60} dominant-baseline="middle" text-anchor="middle" fill="#ffffff">{parameters[paramName].symbol}</text>    
-        <text font-size="0.8em" class="label-text" x={otherParams.mean+Math.sqrt(variance)} y={90} text-anchor="middle" stroke="white" stroke-width="5" paint-order="stroke">{parameters[paramName].name}</text>    
+        <circle class="handle" onpointermove={adapter.delegate(move)} onpointerup={adapter.delegate(release)} onpointerdown={adapter.delegate(pressParameter, paramName)} class:state-active={pressedParameter==paramName} fill={currentDistribution.color} cursor="move" cx={relativeOffset + Math.sqrt(variance)} cy={60} r="10"></circle>
+        <text font-size="0.8em" class="label-text" x={relativeOffset+Math.sqrt(variance)} y={60} dominant-baseline="middle" text-anchor="middle" fill="#ffffff">{parameters[paramName].symbol}</text>    
+        <text font-size="0.8em" class="label-text" x={relativeOffset+Math.sqrt(variance)} y={90} text-anchor="middle" stroke="white" stroke-width="5" paint-order="stroke">{parameters[paramName].name}</text>    
     </g>
 {/snippet}
 
-{#snippet scaleHandle(viewBox, paramName, variance, otherParams)}
+{#snippet scaleHandle(viewBox, paramName, variance, relativeOffset)}
     {@const adapter = viewBox.svgAdapter}             
-    <line stroke-dasharray="3 3" stroke-dashoffset={-(variance)} stroke="black" x1={otherParams.mean-(variance)} x2={otherParams.mean+(variance)} y1={60} y2={60} />
+    <line stroke-dasharray="3 3" stroke-dashoffset={-(variance)} stroke="black" x1={relativeOffset-(variance)} x2={relativeOffset+(variance)} y1={60} y2={60} />
     <g>
-        <circle class="handle" onpointermove={adapter.delegate(move)} onpointerup={adapter.delegate(release)} onpointerdown={adapter.delegate(pressParameter, paramName)} class:state-active={pressedParameter==paramName} fill={currentDistribution.color} cursor="move" cx={otherParams.mean - (variance)} cy={60} r="10"></circle>
+        <circle class="handle" onpointermove={adapter.delegate(move)} onpointerup={adapter.delegate(release)} onpointerdown={adapter.delegate(pressParameter, paramName)} class:state-active={pressedParameter==paramName} fill={currentDistribution.color} cursor="move" cx={relativeOffset - (variance)} cy={60} r="10"></circle>
     </g>
     <g>
-        <circle class="handle" onpointermove={adapter.delegate(move)} onpointerup={adapter.delegate(release)} onpointerdown={adapter.delegate(pressParameter, paramName)} class:state-active={pressedParameter==paramName} fill={currentDistribution.color} cursor="move" cx={otherParams.mean + (variance)} cy={60} r="10"></circle>
-        <text font-size="0.8em" class="label-text" x={otherParams.mean+(variance)} y={60} dominant-baseline="middle" text-anchor="middle" fill="#ffffff">{parameters[paramName].symbol}</text>    
-        <text font-size="0.8em" class="label-text" x={otherParams.mean+(variance)} y={90} text-anchor="middle" stroke="white" stroke-width="5" paint-order="stroke">{parameters[paramName].name}</text>    
+        <circle class="handle" onpointermove={adapter.delegate(move)} onpointerup={adapter.delegate(release)} onpointerdown={adapter.delegate(pressParameter, paramName)} class:state-active={pressedParameter==paramName} fill={currentDistribution.color} cursor="move" cx={relativeOffset + (variance)} cy={60} r="10"></circle>
+        <text font-size="0.8em" class="label-text" x={relativeOffset+(variance)} y={60} dominant-baseline="middle" text-anchor="middle" fill="#ffffff">{parameters[paramName].symbol}</text>    
+        <text font-size="0.8em" class="label-text" x={relativeOffset+(variance)} y={90} text-anchor="middle" stroke="white" stroke-width="5" paint-order="stroke">{parameters[paramName].name}</text>    
     </g>
 {/snippet}
 
@@ -383,17 +465,35 @@
             <div class="controls">
                 <div>
                     Distribution:<br>
-                    {#each Object.entries(distributions) as [c, d]}
-                        <label><input type="radio" value={c} bind:group={distType} /> {d.name}</label>
-                    {/each}
+                    <select bind:value={distType}>
+                        {#each Object.entries(distributions) as [c, d]}
+                            <option value={c}>{d.name}</option>
+                        {/each}
+                    </select>
                 </div>
 
                 <h2>Parameters</h2>
                 {#each currentParameters as param(param)}
                      <div style="display: grid;">
                         <label for="">{parameters[param].name} ({parameters[param].symbol})</label>
-                        <input style:accent-color={currentDistribution.color} type="range" oninput={updateSlider(param)} value={parameters[param].slider.unproject(parameterValues[param])} min={parameters[param].slider.min} max={parameters[param].slider.max} />
-                     </div>
+                        <input style:accent-color={currentDistribution.color} type="range" oninput={updateSlider(param, parameterValues)} value={parameters[param].slider.unproject(parameterValues[param])} min={parameters[param].slider.min} max={parameters[param].slider.max} />
+                        <div>Prior:
+                            <select bind:value={parameterPriorDistTypes[param]}>
+                                <option value={null}>None</option>
+                                {#each Object.entries(distributions) as [c, d]}
+                                    <option value={c}>{d.name}</option>
+                                {/each}
+                            </select>
+                            {#if parameterPriorDistTypes[param]}
+                            {#each distributions[parameterPriorDistTypes[param]].parameters as priorParam(priorParam)}
+                                <div style="display: grid;">
+                                    <label for="">{parameters[priorParam].name} ({parameters[priorParam].symbol})</label>
+                                    <input type="range" style:accent-color={parameters[param].color} oninput={updateSlider(priorParam, parameterPriorDistParams[param])} value={parameters[priorParam].slider.unproject(parameterPriorDistParams[param][priorParam])} min={parameters[priorParam].slider.min} max={parameters[priorParam].slider.max} />
+                                </div>
+                            {/each}
+                            {/if}
+                        </div>
+                    </div>
                 {/each}
 
                 <h3>View</h3>
@@ -446,7 +546,7 @@
                     <g>
                         <line class="axis-line" stroke="black" 
                         x1={0} x2={0} 
-                        y1={adapter.visibleMin.y+axisPadding} y2={adapter.visibleMax.y-axisPadding}></line>
+                        y1={adapter.visibleMin.y+axisPadding} y2={0*(adapter.visibleMax.y-axisPadding)+axisPadding}></line>
                         <line class="axis-line" stroke="black" 
                         y1={0} y2={0} 
                         x1={adapter.visibleMin.x+axisPadding} x2={adapter.visibleMax.x-axisPadding}></line>
@@ -463,6 +563,23 @@
                         <polyline class="plot-area" fill-opacity="0.1" fill={currentDistribution.color} stroke="none" stroke-width="2" points={`${adapter.visibleMin.x+axisPadding},0,`+join(",", map(adapter.linspaceX(axisPadding), x => `${x},${yScale*currentPdf(x,parameterValues)}`))+`,${adapter.visibleMax.x-axisPadding},0`} />
                         <polyline class="plot-line" fill="none" stroke={currentDistribution.color} stroke-width="2" points={join(",", map(adapter.linspaceX(axisPadding), x => `${x},${yScale*currentPdf(x,parameterValues)}`))} />
                     </g>
+                    {#each currentParameters as param, i (param)}
+                        {@const paramDistType = parameterPriorDistTypes[param]}
+                        {#if paramDistType }
+                            {@const currentDistribution = distributions[paramDistType]}
+                            {@const currentPdf = logScale ? distributions[paramDistType].logPdf : distributions[paramDistType].pdf}
+                            {@const vOffset = 180 + 70*i}
+                            {@const hOffset = parameters[param].renderOffset(parameterValues)}
+                            <g>
+                                <text x={adapter.visibleMin.x + 20} y={vOffset-10} dominant-baseline="middle">{parameters[param].name} Prior Distribution</text>
+
+                                <polyline class="plot-area" fill-opacity="0.1" fill={parameters[param].color} stroke="none" stroke-width="2" points={`${adapter.visibleMin.x+axisPadding},${vOffset},`+join(",", map(adapter.linspaceX(axisPadding), x => `${x+hOffset},${vOffset+0.2*yScale*currentPdf(x,parameterPriorDistParams[param])}`))+`,${adapter.visibleMax.x-axisPadding},${vOffset}`} />
+                                <polyline class="plot-line" fill="none" stroke={parameters[param].color} stroke-width="2" points={`${adapter.visibleMin.x+axisPadding},${vOffset},`+join(",", map(adapter.linspaceX(axisPadding), x => `${x+hOffset},${vOffset+0.2*yScale*currentPdf(x,parameterPriorDistParams[param])}`))+`,${adapter.visibleMax.x-axisPadding},${vOffset}`} />
+                                    
+                                <line x1={hOffset+parameters[param].renderProject(parameterValues[param])} y1={vOffset} x2={hOffset+parameters[param].renderProject(parameterValues[param])} y2={vOffset+0.2*yScale*currentPdf(parameters[param].renderProject(parameterValues[param]),parameterPriorDistParams[param])} stroke={parameters[param].color}></line>
+                            </g>
+                        {/if}
+                    {/each}
                     <g>
                         <rect cursor="copy" fill-opacity="0.2" fill="#ffaa00" x={adapter.visibleMin.x+axisPadding} y={0}  width={adapter.visibleWidth-2*axisPadding} height={40} onpointerdown={adapter.delegate(addSample)} />
                         <text x={adapter.visibleMin.x + 20} y={20} dominant-baseline="middle">Samples</text>
@@ -478,7 +595,7 @@
                     
                     {#each currentParameters as param}
                         {#each parameters[param].handles as h}
-                            {@render h(viewport, param, parameterValues[param], parameterValues)}
+                            {@render h(viewport, param, parameterValues[param], parameters[param].renderOffset(parameterValues))}
                         {/each}
                     {/each}
                 {/if}
