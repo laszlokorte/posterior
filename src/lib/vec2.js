@@ -24,11 +24,11 @@ export class Vec2 {
     }
 
     get mag() {
-        Math.hypot(this.#x, this.#y);
+        return Math.hypot(this.#x, this.#y);
     }
 
     get arg() {
-        Math.atan2(this.#y, this.#x);
+        return Math.atan2(this.#y, this.#x);
     }
 
     set mag(v) {        
@@ -45,8 +45,8 @@ export class Vec2 {
     }
 
     rotate(delta) {
-        let cos = Math.cos(delta);
-        let sin = Math.sin(delta);
+        const cos = Math.cos(delta);
+        const sin = Math.sin(delta);
 
         [this.#x, this.#y] = [
             cos*this.#x - sin*this.#y, 
@@ -67,6 +67,13 @@ export class AABB2 {
     #start = new Vec2();
     #end = new Vec2();
 
+    constructor(minX=0, minY=0, width=0, height=0) {
+        this.start.x = minX
+        this.start.y = minY
+        this.end.x = minX + width
+        this.end.y = minY + height
+    }
+
     orient() {
        [
         this.#start.x, 
@@ -76,57 +83,65 @@ export class AABB2 {
        ] = [minX, minY, maxX, maxY]
     }
 
+    get start () {
+        return this.#start
+    }
+
+    get end () {
+        return this.#end
+    }
+
     get minX () {
-        return Math.min(start.x, end.x)
+        return Math.min(this.start.x, this.end.x)
     }
 
     get minY () {
-        return Math.min(start.y, end.y)
+        return Math.min(this.start.y, this.end.y)
     }
 
     get maxX () {
-        return Math.max(start.x, end.x)
+        return Math.max(this.start.x, this.end.x)
     }
 
     get maxY () {
-        return Math.max(start.y, end.y)
+        return Math.max(this.start.y, this.end.y)
     }
 
     get width () {
-        return Math.abs(end.x - start.x)
+        return Math.abs(this.end.x - this.start.x)
     }
 
     get height () {
-        return Math.abs(end.y - start.y)
+        return Math.abs(this.end.y - this.start.y)
     }
 
     get centerX () {
-        return (end.y - start.y) / 2
+        return (this.end.y - this.start.y) / 2
     }
 
     get centerY () {
-        return (end.x - start.x) / 2
+        return (this.end.x - this.start.x) / 2
     }
 
     get center () {
-        return new Vec2(centerX, centerY)
+        return new Vec2(this.centerX, this.centerY)
     }
 
     set center (c) {
         const dx = centerX - c.x
         const dy = centerY - c.y
 
-        this.#start.x += dx
-        this.#start.y += dy
-        this.#end.x += dx
-        this.#end.y += dy
+        this.start.x += dx
+        this.start.y += dy
+        this.end.x += dx
+        this.end.y += dy
     }
 
     setMinAndSize(minX, minY, width, height) {
-        this.#start.x = minX
-        this.#start.y = minY
-        this.#end.x = minX + width
-        this.#end.y = minY + height
+        this.start.x = minX
+        this.start.y = minY
+        this.end.x = minX + width
+        this.end.y = minY + height
     }
     
 }

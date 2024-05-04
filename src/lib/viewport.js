@@ -1,4 +1,10 @@
 import {Vec2, AABB2} from './vec2.js';
+import {lerp,
+    linspace,
+    map,
+    join,
+    clamp2D,
+    clamp} from './utils.js'
 
 
 export class Aperture {
@@ -116,13 +122,13 @@ export class Viewport {
         if(this.#camera.aperture.fit === 'none') {
 			return rect
 		} else {
-			const relWidth = rect.width/this.#screen.x
-			const relHeight = rect.height/this.#screen.y
+			const relWidth = rect.width/this.#screen.size.x
+			const relHeight = rect.height/this.#screen.size.y
 			
 			const factor = this.#camera.aperture.selectScaling(relWidth, relHeight)
 
-			const actualWidth = this.#screen.x * factor
-			const actualHeight = this.#screen.y * factor
+			const actualWidth = this.#screen.size.x * factor
+			const actualHeight = this.#screen.size.y * factor
 			const extraWidth = actualWidth - rect.width
 			const extraHeight = actualHeight - rect.height
 
@@ -156,13 +162,17 @@ export class ViewportUtility {
 }
 
 export class ViewportSVGAdapter {
-    static #aspectRegExp = new RegExp("^x(?<x>M(?:in|id|ax))Y(?<y>M(?:in|id|ax))(?:\\s+(?<scale>meet|slice|none))$")
+    static #aspectRegExp = new RegExp("^x(?<x>M(?:in|id|ax))Y(?<y>M(?:in|id|ax))(?:\\s+(?<fit>meet|slice|none))$")
     static #space = /\s+/
     
     #viewport = new Viewport()
 
     constructor(vp) {
         this.#viewport = vp
+    }
+
+    clone() {
+        return new ViewportSVGAdapter(this.#viewport)
     }
 
     get viewBox() {
@@ -182,7 +192,7 @@ export class ViewportSVGAdapter {
     get preserveAspectRatio() {
         const aperture = this.#viewport.camera.aperture
         
-        `x${aperture.alignX}Y${aperture.alignX} ${aperture.scale}`
+        return `x${aperture.alignX}Y${aperture.alignX} ${aperture.fit}`
     }
 
     set preserveAspectRatio(string) {
@@ -193,7 +203,7 @@ export class ViewportSVGAdapter {
 
         this.#viewport.camera.aperture.alignX = m.groups.x
         this.#viewport.camera.aperture.alignY = m.groups.y
-        this.#viewport.camera.aperture.scale = m.groups.scale
+        this.#viewport.camera.aperture.fit = m.groups.fit
     }
 
     set width(w) {
@@ -210,6 +220,26 @@ export class ViewportSVGAdapter {
 
     get height() {
         return this.#viewport.screen.size.y
+    }
+
+    get aperture() {
+        return this.#viewport.camera.aperture
+    }
+
+    get viewBoxMinX() {
+        return this.aperture.rect.minX
+    }
+
+    get viewBoxMinY() {
+        return this.aperture.rect.minY
+    }
+
+    get viewBoxWidth() {
+        return this.aperture.rect.width
+    }
+
+    get viewBoxHeight() {
+        return this.aperture.rect.height
     }
 
     screenToWorld(x, y, targetLeft, targetTop, targetWidth, targetHeight) {
@@ -229,6 +259,7 @@ export class ViewportSVGAdapter {
     eventToWorld(evt, target) {
         const targetRect = target.getBoundingClientRect();
 		
+
 		return this.screenToWorld(
 			evt.clientX, evt.clientY,
 			targetRect.left, targetRect.top, 
@@ -239,7 +270,58 @@ export class ViewportSVGAdapter {
     delegate(fn) {
         return (evt) => fn(this.eventToWorld(evt, evt.currentTarget.ownerSVGElement), evt, this)
     }
+    
+    get visibleMin() {
+        return this.screenToWorld(
+			0, 0,
+			0, 0, 
+			this.width, this.height
+		)
+    }
+
+    get visibleMax() {
+        return this.screenToWorld(
+			this.width, this.height,
+			0, 0, 
+			this.width, this.height
+		)
+    }
+
+    
+
+    get visibleWidth() {
+        return this.visibleMax.x - this.visibleMin.x
+    }
+
+    get visibleHeight() {
+        return this.visibleMax.y - this.visibleMin.y
+    }
+
+    clampVisible(xy) {
+        return clamp2D(this.visibleMin, this.visibleMax, xy)
+    }
+
+    clampViewbox(xy) {
+        return clamp2D(this.min, this.max, xy)
+    }
+
+    clampVisibleX(v) {
+        return clamp(this.visibleMin.x, this.visibleMax.x, v)
+    }
+
+    clampVisibleY(v) {
+        return clamp(this.visibleMin.y, this.visibleMax.y, v)
+    }
+
+    *linspaceX(padding) {
+        yield* linspace(this.visibleMin.x+padding, this.visibleMax.x-padding, this.visibleWidth)
+    }
+
+    *linspaceY(padding) {
+        yield* linspace(this.visibleMin.y+padding, this.visibleMax.y-padding, this.visibleHeight)
+    }
 }
+
 
 export class ViewportCanvasAdapter {
     #viewport = new Viewport()

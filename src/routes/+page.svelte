@@ -3,10 +3,11 @@
 
 <script>
   import Canvas from '../lib/Canvas.svelte'
-  import { Viewport } from '../lib/viewport.svelte';
+  import { Viewport } from '../lib/viewport.js';
+  import {SvelteViewportSVGAdapter} from '../lib/viewport.svelte.js'
 
-    let vp = $state(new Viewport())
-    //const vp2 = $state(new Viewport())
+    let vp = new Viewport()
+    let svgAdapter = new SvelteViewportSVGAdapter(vp.utility.svgAdapter)
 
     let debug = $state(false)
     let pressedMean = $state(false)
@@ -171,57 +172,57 @@
                  <label><input type="radio" value={c} bind:group={distType} /> {c}</label>
             {/each}
         </div>
-        <Canvas preserveAspectRatio="xMidYMid meet" let:ready bind:viewport={vp}>
-            {#snippet children(v, ready)}
+        <Canvas preserveAspectRatio="xMidYMid meet" svgAdapter={svgAdapter}>
+            {#snippet children(adapter, ready)}
                 {#if ready}
-                    {@const yScale = -v.visibleHeight*30}
+                    {@const yScale = -adapter.visibleHeight*30}
                     {@const axisPadding = 5}
                     {@const std = Math.max(1, stdDev)}
             
                     <g pointer-events="all">
-                        <rect x={v.visibleMin.x} y={v.visibleMin.y} width={v.visibleWidth} height={v.visibleHeight}  fill="white"></rect>
+                        <rect x={adapter.visibleMin.x} y={adapter.visibleMin.y} width={adapter.visibleWidth} height={adapter.visibleHeight}  fill="white"></rect>
                     </g>
                     <g class:hidden={!debug} pointer-events="none">
                         <line stroke-width="1px" stroke="black" stroke-opacity="0.1" 
-                        x1={v.visibleMin.x} x2={v.visibleMax.x} 
-                        y1={v.visibleMin.y} y2={v.visibleMax.y}></line>
+                        x1={adapter.visibleMin.x} x2={adapter.visibleMax.x} 
+                        y1={adapter.visibleMin.y} y2={adapter.visibleMax.y}></line>
                         <line stroke-width="1px" stroke="black" stroke-opacity="0.1" 
-                        x1={v.visibleMax.x} x2={v.visibleMin.x} 
-                        y1={v.visibleMin.y} y2={v.visibleMax.y}></line>
+                        x1={adapter.visibleMax.x} x2={adapter.visibleMin.x} 
+                        y1={adapter.visibleMin.y} y2={adapter.visibleMax.y}></line>
                         <line stroke-width="1px" stroke="black" stroke-opacity="0.1" 
                         x1={0} x2={0} 
-                        y1={v.visibleMin.y} y2={v.visibleMax.y}></line>
+                        y1={adapter.visibleMin.y} y2={adapter.visibleMax.y}></line>
                         <line stroke-width="1px" stroke="black" stroke-opacity="0.1" 
                         y1={0} y2={0} 
-                        x1={v.visibleMin.x} x2={v.visibleMax.x}></line>
+                        x1={adapter.visibleMin.x} x2={adapter.visibleMax.x}></line>
                     </g>
                     <g>
                         <line class="axis-line" stroke="black" 
                         x1={0} x2={0} 
-                        y1={v.visibleMin.y+axisPadding} y2={v.visibleMax.y-axisPadding}></line>
+                        y1={adapter.visibleMin.y+axisPadding} y2={adapter.visibleMax.y-axisPadding}></line>
                         <line class="axis-line" stroke="black" 
                         y1={0} y2={0} 
-                        x1={v.visibleMin.x+axisPadding} x2={v.visibleMax.x-axisPadding}></line>
+                        x1={adapter.visibleMin.x+axisPadding} x2={adapter.visibleMax.x-axisPadding}></line>
                     </g>
                     <g>
-                        <path class="axis-arrowhead" d="M{v.visibleMax.x},0l-10,-5v10z" fill="black" />
-                        <path class="axis-arrowhead" d="M0,{v.visibleMin.y}l-5,10h10z" fill="black" />
+                        <path class="axis-arrowhead" d="M{adapter.visibleMax.x},0l-10,-5v10z" fill="black" />
+                        <path class="axis-arrowhead" d="M0,{adapter.visibleMin.y}l-5,10h10z" fill="black" />
                     </g>
                     <g>
-                        <polyline class="plot-area" fill-opacity="0.1" fill={colors[distType]} stroke="none" stroke-width="2" points={`${v.visibleMin.x+axisPadding},0,`+join(",", map(v.linspaceX(axisPadding), x => `${x},${yScale*pdfs[distType](x,mean,std)}`))+`,${v.visibleMax.x-axisPadding},0`} />
-                        <polyline class="plot-line" fill="none" stroke={colors[distType]} stroke-width="2" points={join(",", map(v.linspaceX(axisPadding), x => `${x},${yScale*pdfs[distType](x,mean,std)}`))} />
+                        <polyline class="plot-area" fill-opacity="0.1" fill={colors[distType]} stroke="none" stroke-width="2" points={`${adapter.visibleMin.x+axisPadding},0,`+join(",", map(adapter.linspaceX(axisPadding), x => `${x},${yScale*pdfs[distType](x,mean,std)}`))+`,${adapter.visibleMax.x-axisPadding},0`} />
+                        <polyline class="plot-line" fill="none" stroke={colors[distType]} stroke-width="2" points={join(",", map(adapter.linspaceX(axisPadding), x => `${x},${yScale*pdfs[distType](x,mean,std)}`))} />
                     </g>
-                    <rect fill-opacity="0.2" fill="#ffff33" x={v.visibleMin.x} y={0}  width={v.visibleWidth} height={40} onpointerdown={v.delegate(addSample)} />
+                    <rect fill-opacity="0.2" fill="#ffff33" x={adapter.visibleMin.x} y={0}  width={adapter.visibleWidth} height={40} onpointerdown={adapter.delegate(addSample)} />
                     <g pointer-events="none">
                         {#each samples as x}
                         <circle cx={x} cy={5} r="5" fill="darkred"></circle>
                         <line x1={x+1} y1={0} x2={x+1} y2={yScale*pdfs[distType](x, mean, std)} stroke={colors[distType]}></line>
                         {/each}
                     </g>
-                    <circle onpointermove={v.delegate(move)} onpointerup={v.delegate(release)} onpointerdown={v.delegate(pressMean)} fill={pressedMean?'rebeccapurple':'purple'} cursor="move" cx={mean} cy={v.visibleMin.y/2} r="20"></circle>
-                    <circle onpointermove={v.delegate(move)} onpointerup={v.delegate(release)} onpointerdown={v.delegate(pressStdDev)} fill={pressedStdDev?'lightblue':'darkblue'} cursor="move" cx={mean+ stdDev} cy={v.visibleMin.y/2} r="15"></circle>
-                    <text class="label-text" x={mean} y={v.visibleMin.y/2-30} text-anchor="middle">Mean</text>  
-                    <text class="label-text" x={mean+stdDev} y={v.visibleMin.y/2+30} text-anchor="middle">StdDev</text>    
+                    <circle onpointermove={adapter.delegate(move)} onpointerup={adapter.delegate(release)} onpointerdown={adapter.delegate(pressMean)} fill={pressedMean?'rebeccapurple':'purple'} cursor="move" cx={mean} cy={adapter.visibleMin.y/2} r="20"></circle>
+                    <circle onpointermove={adapter.delegate(move)} onpointerup={adapter.delegate(release)} onpointerdown={adapter.delegate(pressStdDev)} fill={pressedStdDev?'lightblue':'darkblue'} cursor="move" cx={mean+ stdDev} cy={adapter.visibleMin.y/2} r="15"></circle>
+                    <text class="label-text" x={mean} y={adapter.visibleMin.y/2-30} text-anchor="middle">Mean</text>  
+                    <text class="label-text" x={mean+stdDev} y={adapter.visibleMin.y/2+30} text-anchor="middle">StdDev</text>    
                 {/if}
             {/snippet}
         </Canvas>
@@ -230,15 +231,15 @@
     <div>
         <label><input type="checkbox" bind:checked={debug}> Debug</label>
         <button onclick={clearSamples}>Clear</button>
+        
         <p>
-            {vp.targetWidth}&times;{vp.targetHeight}
+            {svgAdapter.width}&times{svgAdapter.height}
         </p>
-    
     </div>
     
     <Canvas preserveAspectRatio="xMidYMid slice">
-        {#snippet children(v, ready)}
-        <circle onpointermove={v.delegate(move)} onpointerup={v.delegate(release)} onpointerdown={v.delegate(pressMean)}  fill="purple" cursor="move" cx={mean} cy={stdDev} r="20"></circle>
+        {#snippet children(adapter, ready)}
+        <circle onpointermove={adapter.delegate(move)} onpointerup={adapter.delegate(release)} onpointerdown={adapter.delegate(pressMean)}  fill="purple" cursor="move" cx={mean} cy={stdDev} r="20"></circle>
         {/snippet}
     </Canvas>
 </div>

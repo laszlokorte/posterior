@@ -1,6 +1,7 @@
 <script>
     import { derived } from 'svelte/store';
-    import {Viewport} from './viewport.svelte.js'
+    import {Viewport} from './viewport.js'
+    import {SvelteViewportSVGAdapter} from './viewport.svelte.js'
 
     let svg = $state()
 
@@ -8,14 +9,16 @@
         children,
         viewBox = "-500 -500 1000 1000", 
         preserveAspectRatio = "xMidYMid meet", 
-        viewport = $bindable(new Viewport()),
+        svgAdapter = new SvelteViewportSVGAdapter(new Viewport().utility.svgAdapter),
         ...rest
     } = $props();
 
+
     $effect(() => {
-        viewport.viewBoxString = viewBox
-        viewport.aspectString = preserveAspectRatio
+        svgAdapter.viewBox = viewBox
+        svgAdapter.preserveAspectRatio = preserveAspectRatio
     });
+
 </script>
 <style>
     svg {
@@ -38,22 +41,26 @@
         fill-opacity: 0.1;
     }
 </style>
+
+
 <svg 
 bind:this={svg}
-width={viewport.targetWidth} 
-height={viewport.targetHeight} 
-preserveAspectRatio={viewport.aspectString} 
-bind:clientWidth={viewport.targetWidth} 
-bind:clientHeight={viewport.targetHeight} 
-{...rest}
-viewBox={viewport.viewBoxString}>
+width={svgAdapter.width} 
+height={svgAdapter.height} 
+viewBox={svgAdapter.viewBox}
+preserveAspectRatio={svgAdapter.preserveAspectRatio} 
+bind:clientWidth={svgAdapter.width} 
+bind:clientHeight={svgAdapter.height} 
+{...rest}>
 
+    {@render children(svgAdapter, !!svg)}
+
+    
     {#if svg}
     <g class="debug-layer">
-        <rect class="debug-frame" x={viewport.minX} y={viewport.minY} width={viewport.width} height={viewport.height}></rect>
-        <text dominant-baseline="middle" class="debug-text" x="0" y="0" text-anchor="middle">{viewport.targetWidth}&times;{viewport.targetHeight}</text>
+        <rect class="debug-frame" x={svgAdapter.viewBoxMinX} y={svgAdapter.viewBoxMinY} width={svgAdapter.viewBoxWidth} height={svgAdapter.viewBoxHeight}></rect>
+        <text dominant-baseline="middle" class="debug-text" x="0" y="0" text-anchor="middle">{svgAdapter.width}&times;{svgAdapter.height}</text>
     </g>
     {/if}
-    {@render children(viewport, !!svg)}
 </svg>
 
