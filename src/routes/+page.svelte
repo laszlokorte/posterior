@@ -6,6 +6,8 @@
   import {Viewport, ReactiveViewport} from '../lib/viewport.js'
   import {join, map} from '../lib/utils.js'
 
+    const decimalFormat = new Intl.NumberFormat("en-US", {notation: "scientific",});
+
     let reactiveVP = new ReactiveViewport()
   
     let debug = $state(false)
@@ -15,15 +17,16 @@
     let mean = $state(20)
     let stdDev = $state(40)
     let pressOffset = $state(0)
+    let logScale = $state(false)
 
     let samples = $state([])
     let sampleColors = $state([
         '#2f4f4f','#006400','#b8860b','#4b0082',
         '#ff0000','#c71585','#7fff00','#00fa9a',
         '#00ffff','#0000ff','#ff00ff','#1e90ff',
-        '#fa8072'])
+        '#fa8071'])
 
-    let likelihood = $derived(samples.reduce((acc, {x}) => acc*pdfs[distType](x, mean, stdDev), 1))
+    let likelihood = $derived(samples.reduce((acc, {x}) => acc*currentPdf(x, mean, stdDev), 1))
     let logLikelihood = $derived(Math.log(likelihood))
 
     function addSample({x}) {
@@ -33,7 +36,7 @@
     }
 
     function clearSamples() {
-        sampleColors = samples.map(({color}) => color)
+        sampleColors.push(...samples.map(({color}) => color))
         samples.length = 0
     }
 
@@ -81,6 +84,20 @@
             return Math.abs(x-m) < std ? 0.5/std : 0
         }
     }
+
+    const logPdfs = {
+        gauss(x, m, std) {
+            return -0.5*Math.pow((x-m)/std,2)/8000 - Math.log(std*Math.sqrt(2*Math.PI))/8000
+        },
+        laplace(x, m, std) {
+            return -Math.abs((x-m)/std)/8000 - Math.log(std*2)/8000
+        },
+        uniform(x, m, std) {
+            return Math.abs(x-m) < std ? Math.log(0.5/std)/8000 : -10000
+        }
+    }
+
+    let currentPdf = $derived(logScale ? logPdfs[distType] : pdfs[distType])
 </script>
 
 <style>
@@ -151,28 +168,42 @@
         stroke: #4a89bc;
         stroke-width: 2px;
     }
+    
+    .controls {
+        background-color: #0003;
+        padding: 1em;
+        width: max-content;
+    }
 </style>
 
 <div class="grid">
     <div class="hud">
         <div class="ontop">
-            <div>
-                {#each Object.keys(colors) as c}
-                    <label><input type="radio" value={c} bind:group={distType} /> {c}</label>
-                {/each}
-            </div>
-
-            <div>
-                -LogLikelihood: {-logLikelihood}
-            </div>
-
-            <div>
-                <label><input type="checkbox" bind:checked={debug}> Debug</label>
-                <button onclick={clearSamples}>Clear</button>
-                
-                <p>
-                    {$reactiveVP.screen.size.x}&times;{$reactiveVP.screen.size.y}
-                </p>
+            <div class="controls">
+                <div>
+                    Distribution:<br>
+                    {#each Object.keys(colors) as c}
+                        <label><input type="radio" value={c} bind:group={distType} /> {c}</label>
+                    {/each}
+                </div>
+                <div>
+                    Scale:<br>
+                    <label><input type="radio" value={false} bind:group={logScale} /> Linear</label>
+                    <label><input type="radio" value={true} bind:group={logScale} /> Log</label>
+                </div>
+    
+                <div>
+                    Likelihood: {logScale ? decimalFormat.format(logLikelihood) : decimalFormat.format(likelihood)}
+                </div>
+    
+                <div>
+                    <label><input type="checkbox" bind:checked={debug}> Debug</label>
+                    <button onclick={clearSamples}>Clear</button>
+                    
+                    <p>
+                        {$reactiveVP.screen.size.x}&times;{$reactiveVP.screen.size.y}
+                    </p>
+                </div>
             </div>
         </div>
         <Canvas viewBox="-400 -400 800 800" preserveAspectRatio="xMidYMid meet" viewport={reactiveVP}>
@@ -213,15 +244,15 @@
                         <path class="axis-arrowhead" d="M0,{adapter.visibleMin.y}l-5,10h10z" fill="black" />
                     </g>
                     <g>
-                        <polyline class="plot-area" fill-opacity="0.1" fill={colors[distType]} stroke="none" stroke-width="2" points={`${adapter.visibleMin.x+axisPadding},0,`+join(",", map(adapter.linspaceX(axisPadding), x => `${x},${yScale*pdfs[distType](x,mean,std)}`))+`,${adapter.visibleMax.x-axisPadding},0`} />
-                        <polyline class="plot-line" fill="none" stroke={colors[distType]} stroke-width="2" points={join(",", map(adapter.linspaceX(axisPadding), x => `${x},${yScale*pdfs[distType](x,mean,std)}`))} />
+                        <polyline class="plot-area" fill-opacity="0.1" fill={colors[distType]} stroke="none" stroke-width="2" points={`${adapter.visibleMin.x+axisPadding},0,`+join(",", map(adapter.linspaceX(axisPadding), x => `${x},${yScale*currentPdf(x,mean,std)}`))+`,${adapter.visibleMax.x-axisPadding},0`} />
+                        <polyline class="plot-line" fill="none" stroke={colors[distType]} stroke-width="2" points={join(",", map(adapter.linspaceX(axisPadding), x => `${x},${yScale*currentPdf(x,mean,std)}`))} />
                     </g>
-                    <rect fill-opacity="0.2" fill="#ffff33" x={adapter.visibleMin.x} y={0}  width={adapter.visibleWidth} height={40} onpointerdown={adapter.delegate(addSample)} />
+                    <rect cursor="copy" fill-opacity="0.2" fill="#ffff33" x={adapter.visibleMin.x} y={0}  width={adapter.visibleWidth} height={40} onpointerdown={adapter.delegate(addSample)} />
                     <g pointer-events="none">
                         {#each samples as {x,color}}
-                        <circle cx={x} cy={5} r="5" fill={color}></circle>
-                        <circle cx={x} cy={yScale*pdfs[distType](x, mean, std)} r="2" fill={color}></circle>
-                        <line x1={x} y1={0} x2={x} y2={yScale*pdfs[distType](x, mean, std)} stroke={color}></line>
+                        <circle cx={x} cy={0} r="5" fill={color}></circle>
+                        <circle cx={x} cy={yScale*currentPdf(x, mean, std)} r="2" fill={color}></circle>
+                        <line x1={x} y1={0} x2={x} y2={yScale*currentPdf(x, mean, std)} stroke={color}></line>
                         {/each}
                     </g>
                     <line stroke-dasharray="3 3" stroke="black" x1={mean} x2={mean+stdDev} y1={adapter.visibleMin.y/2} y2={adapter.visibleMin.y/2} />
