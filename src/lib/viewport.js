@@ -301,8 +301,8 @@ export class ViewportSVGAdapter {
 		)
     }
 
-    delegate(fn) {
-        return (evt) => fn(this.eventToWorld(evt, evt.currentTarget.ownerSVGElement), evt, this)
+    delegate(fn, ...args) {
+        return (evt) => fn(this.eventToWorld(evt, evt.currentTarget.ownerSVGElement), evt, this, ...args)
     }
     
     get visibleMin() {

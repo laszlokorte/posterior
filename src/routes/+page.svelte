@@ -13,6 +13,7 @@
     let debug = $state(false)
     let pressedMean = $state(false)
     let pressedStdDev = $state(false)
+    let pressedStdDevMirror = $state(0)
     let distType = $state('gauss')
     let mean = $state(20)
     let stdDev = $state(40)
@@ -47,9 +48,10 @@
         evt.currentTarget.setPointerCapture(evt.pointerId);
     }
 
-    function pressStdDev(local, evt, vp) {
+    function pressStdDev(local, evt, vp, mirror) {
         pressedStdDev = true
-        pressOffset = local.x - stdDev
+        pressedStdDevMirror = mirror
+        pressOffset = local.x - mirror*stdDev
 
         evt.currentTarget.setPointerCapture(evt.pointerId);
     }
@@ -58,46 +60,71 @@
         if(pressedMean) {
             mean = vp.clampVisibleX(local.x - pressOffset)
         } else if(pressedStdDev) {
-            stdDev = Math.max(0, vp.clampVisibleX(local.x - pressOffset))
+            stdDev = Math.max(0, pressedStdDevMirror*vp.clampVisibleX(local.x - pressOffset))
         }
     }
 
     function release(local, evt, vp) {
         pressedMean = false
         pressedStdDev = false
+        pressedStdDevMirror = 0
     }
 
-    const colors = {
-        gauss: 'darkred',
-        laplace: 'darkgreen',
-        uniform: 'darkblue',
-    }
-
-    const pdfs = {
-        gauss(x, m, std) {
-            return Math.exp(-0.5*Math.pow((x-m)/std,2))/std/Math.sqrt(2*Math.PI)
+    const distributions = {
+        gauss: {
+            pdf(x, m, std) {
+                return Math.exp(-0.5*Math.pow((x-m)/std,2))/std/Math.sqrt(2*Math.PI)
+            },
+            logPdf(x, m, std) {
+                return -0.5*Math.pow((x-m)/std,2)/8000 - Math.log(std*Math.sqrt(2*Math.PI))/8000
+            },
+            get parameters () {
+                return ['mean','stdDev']
+            },
+            get name () {
+                return "Gaußian"
+            },
+            get color() {
+                return 'darkred'
+            }
         },
-        laplace(x, m, std) {
-            return Math.exp(-Math.abs((x-m)/std))/std/2
+        laplace: {
+            pdf(x, m, std) {
+                return Math.exp(-Math.abs((x-m)/std))/std/2
+            },
+                logPdf(x, m, std) {
+                return -Math.abs((x-m)/std)/8000 - Math.log(std*2)/8000
+            },
+            get parameters () {
+                return ['mean','stdDev']
+            },
+            get name () {
+                return "Laplace"
+            },
+            get color() {
+                return 'darkgreen'
+            }
         },
-        uniform(x, m, std) {
-            return Math.abs(x-m) < std ? 0.5/std : 0
+        uniform: {
+            pdf(x, m, std) {
+                return Math.abs(x-m) < std ? 0.5/std : 0
+            },
+            logPdf(x, m, std) {
+                return Math.abs(x-m) < std ? Math.log(0.5/std)/8000 : -10000
+            },
+            get parameters () {
+                return ['mean','stdDev']
+            },
+            get name () {
+                return "Gaußian"
+            },
+            get color() {
+                return 'darkblue'
+            }
         }
     }
-
-    const logPdfs = {
-        gauss(x, m, std) {
-            return -0.5*Math.pow((x-m)/std,2)/8000 - Math.log(std*Math.sqrt(2*Math.PI))/8000
-        },
-        laplace(x, m, std) {
-            return -Math.abs((x-m)/std)/8000 - Math.log(std*2)/8000
-        },
-        uniform(x, m, std) {
-            return Math.abs(x-m) < std ? Math.log(0.5/std)/8000 : -10000
-        }
-    }
-
-    let currentPdf = $derived(logScale ? logPdfs[distType] : pdfs[distType])
+    let currentDistribution = $derived(distributions[distType])
+    let currentPdf = $derived(logScale ? distributions[distType].logPdf : distributions[distType].pdf)
 </script>
 
 <style>
@@ -168,6 +195,11 @@
         stroke: #4a89bc;
         stroke-width: 2px;
     }
+
+    .handle {
+        stroke: #fff;
+        stroke-width: 2px;
+    }
     
     .controls {
         background-color: #0003;
@@ -182,8 +214,8 @@
             <div class="controls">
                 <div>
                     Distribution:<br>
-                    {#each Object.keys(colors) as c}
-                        <label><input type="radio" value={c} bind:group={distType} /> {c}</label>
+                    {#each Object.entries(distributions) as [c, d]}
+                        <label><input type="radio" value={c} bind:group={distType} /> {d.name}</label>
                     {/each}
                 </div>
                 <div>
@@ -211,7 +243,7 @@
                 {#if ready}
                     {@const adapter = viewport.svgAdapter}
                     {@const yScale = -adapter.visibleHeight*30}
-                    {@const axisPadding = 5}
+                    {@const axisPadding = 10}
                     {@const std = Math.max(1, stdDev)}
             
                     <g pointer-events="all">
@@ -240,26 +272,44 @@
                         x1={adapter.visibleMin.x+axisPadding} x2={adapter.visibleMax.x-axisPadding}></line>
                     </g>
                     <g>
+                        <text x={adapter.visibleMax.x-20} y="-10" text-anchor="end">Measurement</text>
+                        <text transform-origin="-5 {adapter.visibleMin.y+20}" transform="rotate(-90)" y={adapter.visibleMin.y+20} x="-5" text-anchor="end">Probability</text>
+                    </g>
+                    <g>
                         <path class="axis-arrowhead" d="M{adapter.visibleMax.x},0l-10,-5v10z" fill="black" />
                         <path class="axis-arrowhead" d="M0,{adapter.visibleMin.y}l-5,10h10z" fill="black" />
                     </g>
                     <g>
-                        <polyline class="plot-area" fill-opacity="0.1" fill={colors[distType]} stroke="none" stroke-width="2" points={`${adapter.visibleMin.x+axisPadding},0,`+join(",", map(adapter.linspaceX(axisPadding), x => `${x},${yScale*currentPdf(x,mean,std)}`))+`,${adapter.visibleMax.x-axisPadding},0`} />
-                        <polyline class="plot-line" fill="none" stroke={colors[distType]} stroke-width="2" points={join(",", map(adapter.linspaceX(axisPadding), x => `${x},${yScale*currentPdf(x,mean,std)}`))} />
+                        <polyline class="plot-area" fill-opacity="0.1" fill={currentDistribution.color} stroke="none" stroke-width="2" points={`${adapter.visibleMin.x+axisPadding},0,`+join(",", map(adapter.linspaceX(axisPadding), x => `${x},${yScale*currentPdf(x,mean,std)}`))+`,${adapter.visibleMax.x-axisPadding},0`} />
+                        <polyline class="plot-line" fill="none" stroke={currentDistribution.color} stroke-width="2" points={join(",", map(adapter.linspaceX(axisPadding), x => `${x},${yScale*currentPdf(x,mean,std)}`))} />
                     </g>
-                    <rect cursor="copy" fill-opacity="0.2" fill="#ffff33" x={adapter.visibleMin.x} y={0}  width={adapter.visibleWidth} height={40} onpointerdown={adapter.delegate(addSample)} />
+                    <g>
+                        <rect cursor="copy" fill-opacity="0.2" fill="#ffaa00" x={adapter.visibleMin.x+axisPadding} y={0}  width={adapter.visibleWidth-2*axisPadding} height={40} onpointerdown={adapter.delegate(addSample)} />
+                        <text x={adapter.visibleMin.x + 20} y={20} dominant-baseline="middle">Samples</text>
+                    </g>
                     <g pointer-events="none">
                         {#each samples as {x,color}}
-                        <circle cx={x} cy={0} r="5" fill={color}></circle>
+                        <circle cx={x} cy={20} r="5" fill={color}></circle>
                         <circle cx={x} cy={yScale*currentPdf(x, mean, std)} r="2" fill={color}></circle>
                         <line x1={x} y1={0} x2={x} y2={yScale*currentPdf(x, mean, std)} stroke={color}></line>
                         {/each}
                     </g>
-                    <line stroke-dasharray="3 3" stroke="black" x1={mean} x2={mean+stdDev} y1={adapter.visibleMin.y/2} y2={adapter.visibleMin.y/2} />
-                    <circle onpointermove={adapter.delegate(move)} onpointerup={adapter.delegate(release)} onpointerdown={adapter.delegate(pressMean)} class:state-active={pressedMean} fill={'lightseagreen'} cursor="move" cx={mean} cy={adapter.visibleMin.y/2} r="10"></circle>
-                    <circle onpointermove={adapter.delegate(move)} onpointerup={adapter.delegate(release)} onpointerdown={adapter.delegate(pressStdDev)} class:state-active={pressedStdDev} fill={'lightsalmon'} cursor="move" cx={mean+ stdDev} cy={adapter.visibleMin.y/2} r="10"></circle>
-                    <text font-size="0.8em" class="label-text" x={mean} y={adapter.visibleMin.y/2+30} text-anchor="middle">Mean</text>  
-                    <text font-size="0.8em" class="label-text" x={mean+stdDev} y={adapter.visibleMin.y/2+30} text-anchor="middle">StdDev</text>    
+                    <line stroke-dasharray="3 3" stroke-dashoffset={-stdDev} stroke="black" x1={mean-stdDev} x2={mean+stdDev} y1={60} y2={60} />
+                    
+                    <g>
+                        <circle class="handle" onpointermove={adapter.delegate(move)} onpointerup={adapter.delegate(release)} onpointerdown={adapter.delegate(pressMean)} class:state-active={pressedMean} fill={currentDistribution.color} cursor="move" cx={mean} cy={80} r="10"></circle>
+                        <text class="label-text" x={mean} y={80} dominant-baseline="middle" text-anchor="middle" fill="#ffffff">&mu;</text>    
+                        <text font-size="0.8em" class="label-text" x={mean} y={105} text-anchor="middle" stroke="white" stroke-width="5" paint-order="stroke">Mean</text>  
+                    </g>
+                    <g>
+                        <circle class="handle" onpointermove={adapter.delegate(move)} onpointerup={adapter.delegate(release)} onpointerdown={adapter.delegate(pressStdDev, 1)} class:state-active={pressedStdDev} fill={currentDistribution.color} cursor="move" cx={mean + stdDev} cy={60} r="10"></circle>
+                        <text class="label-text" x={mean+stdDev} y={60} dominant-baseline="middle" text-anchor="middle" fill="#ffffff">&sigma;</text>    
+                        <text font-size="0.8em" class="label-text" x={mean+stdDev} y={90} text-anchor="middle" stroke="white" stroke-width="5" paint-order="stroke">StdDev</text>    
+                    </g>
+                    <g>
+                        <circle class="handle" onpointermove={adapter.delegate(move)} onpointerup={adapter.delegate(release)} onpointerdown={adapter.delegate(pressStdDev, -1)} class:state-active={pressedStdDev} fill={currentDistribution.color} cursor="move" cx={mean - stdDev} cy={60} r="10"></circle>
+                        <text class="label-text" x={mean+stdDev} y={60} dominant-baseline="middle" text-anchor="middle" fill="#ffffff">&sigma;</text>    
+                    </g>
                 {/if}
             {/snippet}
         </Canvas>
