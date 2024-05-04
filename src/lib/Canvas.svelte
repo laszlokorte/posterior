@@ -1,22 +1,22 @@
 <script>
     import { derived } from 'svelte/store';
-    import {Viewport} from './viewport.js'
-    import {SvelteViewportSVGAdapter} from './viewport.svelte.js'
+    import {Viewport, ReactiveViewport} from './viewport.js'
 
     let svg = $state()
-
+    
     const {
         children,
         viewBox = "-500 -500 1000 1000", 
         preserveAspectRatio = "xMidYMid meet", 
-        svgAdapter = new SvelteViewportSVGAdapter(new Viewport().utility.svgAdapter),
+        viewport = new ReactiveViewport(new Viewport()),
         ...rest
     } = $props();
 
+    let svgAdapter = $derived($viewport.svgAdapter)
 
     $effect(() => {
-        svgAdapter.viewBox = viewBox
-        svgAdapter.preserveAspectRatio = preserveAspectRatio
+        viewport.svgAdapter.viewBox = viewBox
+        viewport.svgAdapter.preserveAspectRatio = preserveAspectRatio
     });
 
 </script>
@@ -53,14 +53,15 @@ bind:clientWidth={svgAdapter.width}
 bind:clientHeight={svgAdapter.height} 
 {...rest}>
 
-    {@render children(svgAdapter, !!svg)}
-
-    
     {#if svg}
     <g class="debug-layer">
         <rect class="debug-frame" x={svgAdapter.viewBoxMinX} y={svgAdapter.viewBoxMinY} width={svgAdapter.viewBoxWidth} height={svgAdapter.viewBoxHeight}></rect>
         <text dominant-baseline="middle" class="debug-text" x="0" y="0" text-anchor="middle">{svgAdapter.width}&times;{svgAdapter.height}</text>
     </g>
+
+    {@render children($viewport, !!svg)}
+
     {/if}
+    
 </svg>
 

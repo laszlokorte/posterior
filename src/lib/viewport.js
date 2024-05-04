@@ -103,6 +103,7 @@ export class Camera {
 export class Viewport {
     #camera = new Camera()
     #screen = new Screen()
+    #scaled = new AABB2()
 
     get camera() {
         return this.#camera
@@ -112,15 +113,11 @@ export class Viewport {
         return this.#screen
     }
 
-    get utility() {
-        return new ViewportUtility(this)
-    }
-
     get scaledViewBox() {
         const rect = this.#camera.aperture.rect;
 
         if(this.#camera.aperture.fit === 'none') {
-			return rect
+			this.#scaled.setMinAndSize(rect.minX, rect.minY, rect.width, rect.height)
 		} else {
 			const relWidth = rect.width/this.#screen.size.x
 			const relHeight = rect.height/this.#screen.size.y
@@ -135,29 +132,66 @@ export class Viewport {
 			const extraWeightingX = Aperture.alignmentWeight(this.#camera.aperture.alignY);
 			const extraWeightingY = Aperture.alignmentWeight(this.#camera.aperture.alignY);
 
-			return new AABB2(
+            this.#scaled.setMinAndSize(
                 rect.minX - extraWeightingX * extraWidth,
 				rect.minY - extraWeightingY * extraHeight,
 				actualWidth,
-				actualHeight,
+				actualHeight
             )
 		}
+
+        return this.#scaled
     }
 }
 
-export class ViewportUtility {
-    #viewport = new Viewport()
+export class ReactiveViewport {
+    #viewport
+    #svgAdapter
+    #canvasAdapter
+    #subscribers = new Set()
 
-    constructor(vp) {
+    constructor(vp = new Viewport()) {
         this.#viewport = vp
+        this.#svgAdapter = new ViewportSVGAdapter(this)
+        this.#canvasAdapter = new ViewportCanvasAdapter(this)
     }
 
     get svgAdapter() {
-        return new ViewportSVGAdapter(this.#viewport)
+        return this.#svgAdapter
     }
 
     get canvasAdapter() {
-        return new ViewportCanvasAdapter(this.#viewport)
+        return this.#canvasAdapter
+    }
+
+    get camera() {
+        return this.#viewport.camera
+    }
+
+    get screen() {
+        return this.#viewport.screen
+    }
+
+    get scaledViewBox() {
+        return this.#viewport.scaledViewBox
+    }
+
+    subscribe(fn) {
+        this.#subscribers.add(fn)
+        fn(this)
+        
+        return () => {
+            this.#subscribers.delete(fn)
+        }
+    }
+
+    notify(fn) {
+        this.#svgAdapter = new ViewportSVGAdapter(this)
+        this.#canvasAdapter = new ViewportCanvasAdapter(this)
+
+        for(let sub of this.#subscribers) {
+            sub(this)
+        }
     }
 }
 
@@ -165,32 +199,29 @@ export class ViewportSVGAdapter {
     static #aspectRegExp = new RegExp("^x(?<x>M(?:in|id|ax))Y(?<y>M(?:in|id|ax))(?:\\s+(?<fit>meet|slice|none))$")
     static #space = /\s+/
     
-    #viewport = new Viewport()
+    #reactiveViewport
 
     constructor(vp) {
-        this.#viewport = vp
-    }
-
-    clone() {
-        return new ViewportSVGAdapter(this.#viewport)
+        this.#reactiveViewport = vp
     }
 
     get viewBox() {
-        const aperture = this.#viewport.camera.aperture
+        const aperture = this.#reactiveViewport.camera.aperture
 
         return `${aperture.rect.minX} ${aperture.rect.minY} ${aperture.rect.width} ${aperture.rect.height}`
     }
 
     set viewBox(string) {
-        const aperture = this.#viewport.camera.aperture
+        const aperture = this.#reactiveViewport.camera.aperture
 
         const [minX, minY, width, height] = string.split(ViewportSVGAdapter.#space, 4).map(parseFloat)
 
         aperture.rect.setMinAndSize(minX, minY, width, height)
+        this.#reactiveViewport.notify()
     }
 
     get preserveAspectRatio() {
-        const aperture = this.#viewport.camera.aperture
+        const aperture = this.#reactiveViewport.camera.aperture
         
         return `x${aperture.alignX}Y${aperture.alignX} ${aperture.fit}`
     }
@@ -201,29 +232,32 @@ export class ViewportSVGAdapter {
             throw "invalid viewBox value"
         }
 
-        this.#viewport.camera.aperture.alignX = m.groups.x
-        this.#viewport.camera.aperture.alignY = m.groups.y
-        this.#viewport.camera.aperture.fit = m.groups.fit
+        this.#reactiveViewport.camera.aperture.alignX = m.groups.x
+        this.#reactiveViewport.camera.aperture.alignY = m.groups.y
+        this.#reactiveViewport.camera.aperture.fit = m.groups.fit
+        this.#reactiveViewport.notify()
     }
 
     set width(w) {
-        this.#viewport.screen.size.x = w
+        this.#reactiveViewport.screen.size.x = w
+        this.#reactiveViewport.notify()
     }
 
     get width() {
-        return this.#viewport.screen.size.x
+        return this.#reactiveViewport.screen.size.x
     }
 
     set height(h) {
-        this.#viewport.screen.size.y = h
+        this.#reactiveViewport.screen.size.y = h
+        this.#reactiveViewport.notify()
     }
 
     get height() {
-        return this.#viewport.screen.size.y
+        return this.#reactiveViewport.screen.size.y
     }
 
     get aperture() {
-        return this.#viewport.camera.aperture
+        return this.#reactiveViewport.camera.aperture
     }
 
     get viewBoxMinX() {
@@ -248,7 +282,7 @@ export class ViewportSVGAdapter {
         const relativeX = offsetX / targetWidth
         const relativeY = offsetY / targetHeight
 
-        const scaledVB = this.#viewport.scaledViewBox
+        const scaledVB = this.#reactiveViewport.scaledViewBox
 
         return {
             x: scaledVB.minX + scaledVB.width * relativeX,
@@ -287,8 +321,6 @@ export class ViewportSVGAdapter {
 		)
     }
 
-    
-
     get visibleWidth() {
         return this.visibleMax.x - this.visibleMin.x
     }
@@ -324,22 +356,26 @@ export class ViewportSVGAdapter {
 
 
 export class ViewportCanvasAdapter {
-    #viewport = new Viewport()
+    #reactiveViewport
+
+    constructor(vp) {
+        this.#reactiveViewport = vp
+    }
 
     set width(w) {
-        this.#viewport.screen.size.x = w
+        this.#reactiveViewport.screen.size.x = w
     }
 
     get width() {
-        return this.#viewport.screen.size.x
+        return this.#reactiveViewport.screen.size.x
     }
 
     set height(h) {
-        this.#viewport.screen.size.y = h
+        this.#reactiveViewport.screen.size.y = h
     }
 
     get height() {
-        return this.#viewport.screen.size.y
+        return this.#reactiveViewport.screen.size.y
     }
 
     prerender(ctx) {
