@@ -34,8 +34,10 @@
         '#00ffff','#0000ff','#ff00ff','#1e90ff',
         '#fa8071'])
 
-    let likelihood = $derived(samples.reduce((acc, {x}) => acc*currentPdf(x, parameterValues), 1))
-    let logLikelihood = $derived(Math.log(likelihood))
+    let likelihood = $derived(
+        logScale ? samples.reduce((acc, {x}) => acc+currentPdf(x, parameterValues), 0)
+        : samples.reduce((acc, {x}) => acc*currentPdf(x, parameterValues), 1)
+    )
 
     function addSample({x}) {
         if(sampleColors.length) {
@@ -403,7 +405,7 @@
                 </div>
     
                 <div>
-                    Likelihood: {logScale ? decimalFormat.format(logLikelihood) : decimalFormat.format(likelihood)}
+                    Likelihood: {decimalFormat.format(likelihood)}
                 </div>
     
                 <h3>Debug</h3>
