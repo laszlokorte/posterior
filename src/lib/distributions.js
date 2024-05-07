@@ -4,7 +4,7 @@ function gamma(z) {
 
 export const parameters = {
     mean: {
-        priors: ['gauss', 'laplace', 'uniform', 'chi', 'chi2'],
+        priors: ['gauss', 'laplace', 'exponential', 'uniform', 'chi', 'chi2'],
         color: 'magenta',
         default: 0,
         renderOffset(all) {
@@ -37,7 +37,7 @@ export const parameters = {
         }
     },
     variance: {
-        priors: ['uniform', 'chi', 'chi2'],
+        priors: ['uniform', 'chi', 'chi2','exponential'],
         color: 'cyan',
         default: 6400,
         renderOffset(all) {
@@ -70,7 +70,7 @@ export const parameters = {
         }
     },
     scale: {
-        priors: ['uniform', 'chi', 'chi2'],
+        priors: ['uniform', 'chi', 'chi2','exponential'],
         color: 'orange',
         default: 80,
         renderOffset(all) {
@@ -102,8 +102,41 @@ export const parameters = {
             }
         }
     },
+    rate: {
+        priors: ['uniform', 'chi', 'chi2','exponential'],
+        color: 'aquamarine',
+        default: 2,
+        renderOffset(all) {
+            return all.mean
+        },
+        renderProject(v) {
+            return 1/v
+        },
+        clampProject(all, newVal) {
+            return Math.max(0, newVal)
+        },
+        handleProject(all, v) {
+            return 1/v
+        },
+        handleUnProject(all, v) {
+            return 1/v
+        },
+        symbol: '1/λ',
+        name: '1/Rate',
+        slider: {
+            step: .01,
+            min: 0.1,
+            max: 3,
+            project(all, v) {
+                return Math.max(this.min*this.min*this.min*this.min, Math.min(this.max*this.max*this.max*this.max, (v*v*v*v)))
+            },
+            unproject(v) {
+                return Math.sqrt(Math.sqrt(v))
+            }
+        }
+    },
     min: {
-        priors: ['gauss', 'laplace', 'uniform', 'chi', 'chi2'],
+        priors: ['gauss', 'laplace', 'exponential', 'uniform', 'chi', 'chi2'],
         color: 'purple',
         default: -80,
         renderOffset(all) {
@@ -136,7 +169,7 @@ export const parameters = {
         },
     },
     max: {
-        priors: ['gauss', 'laplace', 'uniform', 'chi', 'chi2'],
+        priors: ['gauss', 'laplace', 'exponential', 'uniform', 'chi', 'chi2'],
         color: 'teal',
         default: 80,
         renderOffset(all) {
@@ -169,7 +202,7 @@ export const parameters = {
         },
     },
     degree: {
-        priors: ['uniform', 'chi', 'chi2'],
+        priors: ['uniform', 'chi', 'chi2','exponential'],
         color: 'red',
         default: 2,
         renderOffset(all) {
@@ -236,6 +269,29 @@ export const distributions = {
         },
         get color() {
             return 'darkgreen'
+        }
+    },
+    exponential: {
+        pdf(x, {rate}) {
+            if (x<0) {
+                return 0
+            }
+            return Math.exp(-Math.abs(x*rate))*rate
+        },
+        logPdf(x, {rate}) {
+            if (x<0) {
+                return 0
+            }
+            return -Math.abs(x*rate)/8000 + Math.log(rate)/8000
+        },
+        get parameters () {
+            return ['rate']
+        },
+        get name () {
+            return "Exponential"
+        },
+        get color() {
+            return 'rebeccapurple'
         }
     },
     uniform: {

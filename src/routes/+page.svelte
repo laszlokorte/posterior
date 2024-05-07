@@ -16,6 +16,7 @@
         mean: [meanHandle],
         variance: [varianceHandle],
         scale: [scaleHandle],
+        rate: [rateHandle],
         min: [minMaxHandle],
         max: [minMaxHandle],
         degree: [degreeHandle],
@@ -153,6 +154,7 @@
     .label-text {
         pointer-events: none;
         user-select: none;
+        stroke-linejoin: round;
     }
 
     .hud {
@@ -228,12 +230,23 @@
     <line stroke="black" x1={relativeOffset} x2={relativeOffset} y1={65} y2={55} />
     <line stroke-dasharray="3 3" stroke-dashoffset={-(variance)} stroke="black" x1={relativeOffset-(variance)} x2={relativeOffset+(variance)} y1={60} y2={60} />
     <g>
-        <circle class="handle" onpointermove={adapter.delegate(move)} onpointerup={adapter.delegate(release)} onpointerdown={adapter.delegate(pressParameter, paramName)} class:state-active={pressedParameter==paramName} fill={currentDistribution.color} cursor="move" cx={relativeOffset - (variance)} cy={60} r="10"></circle>
+        <circle class="handle" onpointermove={adapter.delegate(move,-1)} onpointerup={adapter.delegate(release)} onpointerdown={adapter.delegate(pressParameter, paramName, -1)} class:state-active={pressedParameter==paramName} fill={currentDistribution.color} cursor="move" cx={relativeOffset - (variance)} cy={60} r="10"></circle>
     </g>
     <g>
-        <circle class="handle" onpointermove={adapter.delegate(move)} onpointerup={adapter.delegate(release)} onpointerdown={adapter.delegate(pressParameter, paramName)} class:state-active={pressedParameter==paramName} fill={currentDistribution.color} cursor="move" cx={relativeOffset + (variance)} cy={60} r="10"></circle>
+        <circle class="handle" onpointermove={adapter.delegate(move, +1)} onpointerup={adapter.delegate(release)} onpointerdown={adapter.delegate(pressParameter, paramName, +1)} class:state-active={pressedParameter==paramName} fill={currentDistribution.color} cursor="move" cx={relativeOffset + (variance)} cy={60} r="10"></circle>
         <text font-size="0.8em" class="label-text" x={relativeOffset+(variance)} y={60} dominant-baseline="middle" text-anchor="middle" fill="#ffffff">{parameters[paramName].symbol}</text>    
         <text font-size="0.8em" class="label-text" x={relativeOffset+(variance)} y={90} text-anchor="middle" stroke="white" stroke-width="5" paint-order="stroke">{parameters[paramName].name}</text>    
+    </g>
+{/snippet}
+
+{#snippet rateHandle(viewBox, paramName, rate, relativeOffset)}
+    {@const adapter = viewBox.svgAdapter}             
+    <line stroke="black" x1={relativeOffset} x2={relativeOffset} y1={65} y2={55} />
+    <line stroke-dasharray="3 3" stroke-dashoffset={0} stroke="black" x1={relativeOffset} x2={relativeOffset+(rate)} y1={60} y2={60} />
+    <g>
+        <circle class="handle" onpointermove={adapter.delegate(move, +1)} onpointerup={adapter.delegate(release)} onpointerdown={adapter.delegate(pressParameter, paramName, +1)} class:state-active={pressedParameter==paramName} fill={currentDistribution.color} cursor="move" cx={relativeOffset + (rate)} cy={60} r="10"></circle>
+        <text font-size="0.8em" class="label-text" x={relativeOffset+(rate)} y={60} dominant-baseline="middle" text-anchor="middle" fill="#ffffff">{parameters[paramName].symbol}</text>    
+        <text font-size="0.8em" class="label-text" x={relativeOffset+(rate)} y={90} text-anchor="middle" stroke="white" stroke-width="5" paint-order="stroke">{parameters[paramName].name}</text>    
     </g>
 {/snippet}
 
@@ -261,7 +274,7 @@
         <div class="ontop">
             <div class="controls">
                 <div>
-                    Distribution:<br>
+                    Likelihood Distribution:<br>
                     <select bind:value={distType}>
                         {#each Object.entries(distributions) as [c, d]}
                             <option value={c}>{d.name}</option>
@@ -274,7 +287,7 @@
                      <div style="display: grid;">
                         <label for="">{parameters[param].name} ({parameters[param].symbol})</label>
                         <input style:accent-color={currentDistribution.color} type="range" step={parameters[param].slider.step} oninput={updateSlider(param, parameterValues)} value={parameters[param].slider.unproject(parameterValues[param])} min={parameters[param].slider.min} max={parameters[param].slider.max} />
-                        <div class="prior-config">Prior:
+                        <div class="prior-config">Prior Dist.:
                             <select bind:value={parameterPriorDistTypes[param]}>
                                 <option value={null}>None</option>
                                 {#each parameters[param].priors as c}
@@ -285,7 +298,7 @@
                             {#each distributions[parameterPriorDistTypes[param]].parameters as priorParam(priorParam)}
                                 <div style="display: grid;">
                                     <label for="">{parameters[priorParam].name} ({parameters[priorParam].symbol})</label>
-                                    <input type="range" style:accent-color={parameters[param].color} oninput={updateSlider(priorParam, parameterPriorDistParams[param])} value={parameters[priorParam].slider.unproject(parameterPriorDistParams[param][priorParam])} min={parameters[priorParam].slider.min} max={parameters[priorParam].slider.max} />
+                                    <input type="range"  step={parameters[param].slider.step} style:accent-color={parameters[param].color} oninput={updateSlider(priorParam, parameterPriorDistParams[param])} value={parameters[priorParam].slider.unproject(parameterPriorDistParams[param][priorParam])} min={parameters[priorParam].slider.min} max={parameters[priorParam].slider.max} />
                                 </div>
                             {/each}
                             {/if}
