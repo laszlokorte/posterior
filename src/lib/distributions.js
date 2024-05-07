@@ -37,7 +37,7 @@ export const parameters = {
         }
     },
     variance: {
-        priors: ['uniform', 'chi', 'chi2','exponential'],
+        priors: ['uniform','exponential', 'chi', 'chi2'],
         color: 'darkcyan',
         default: 6400,
         renderOffset(all) {
@@ -70,7 +70,7 @@ export const parameters = {
         }
     },
     scale: {
-        priors: ['uniform', 'chi', 'chi2','exponential'],
+        priors: ['uniform','exponential', 'chi', 'chi2'],
         color: 'orange',
         default: 80,
         renderOffset(all) {
@@ -103,7 +103,7 @@ export const parameters = {
         }
     },
     rate: {
-        priors: ['uniform', 'chi', 'chi2','exponential'],
+        priors: ['uniform','exponential', 'chi', 'chi2'],
         color: 'aquamarine',
         default: 0.01,
         renderOffset(all) {
@@ -202,7 +202,7 @@ export const parameters = {
         },
     },
     degree: {
-        priors: ['uniform', 'chi', 'chi2','exponential'],
+        priors: ['uniform','exponential', 'chi', 'chi2'],
         color: 'hotpink',
         default: 2,
         renderOffset(all) {
@@ -265,7 +265,7 @@ export const distributions = {
             return ['mean','scale']
         },
         get name () {
-            return "Laplace"
+            return "Laplacian"
         },
         get color() {
             return 'darkgreen'
@@ -296,10 +296,10 @@ export const distributions = {
     },
     uniform: {
         pdf(x, {min,max}) {
-            return x>=min && x<=max ? 0.5/(max-min) : 0
+            return x>=min && x<=max ? 1/(max-min) : 0
         },
         logPdf(x, {min,max}) {
-            return x>=min && x<=max ? Math.log(0.5/(max-min))/8000 : -10000
+            return x>=min && x<=max ? Math.log(1/(max-min))/8000 : -10000
         },
         get parameters () {
             return ['min','max']

@@ -8,7 +8,7 @@
   import {distributions, parameters} from '../lib/distributions.js'
 
     const pdfScaleFactor = 1
-    const decimalFormat = new Intl.NumberFormat("en-US", {notation: "scientific",});
+    const decimalFormat = new Intl.NumberFormat("en-US", {notation: "engineering",});
 
     let reactiveVP = new ReactiveViewport()
 
@@ -56,9 +56,8 @@
     let samples = $state([])
     let sampleColors = $state([
         '#2f4f4f','#006400','#b8860b','#4b0082',
-        '#ff0000','#c71585','#7fff00','#00fa9a',
-        '#00ffff','#0000ff','#ff00ff','#1e90ff',
-        '#fa8071'])
+        '#c71585','#00fa9a',
+        '#00ffff','#0000ff','#ff00ff','#1e90ff'])
 
     let likelihood = $derived(
         logScale ? samples.reduce((acc, {x}) => acc+currentPdf(x, parameterValues), 0)
@@ -104,6 +103,19 @@
     let currentDistribution = $derived(distributions[distType])
     let currentParameters = $derived(distributions[distType].parameters)
     let currentPdf = $derived(scalePdf(logScale ? distributions[distType].logPdf : distributions[distType].pdf, pdfScaleFactor))
+
+    let paramsWithPrior = $derived(currentParameters
+        .filter((param) => parameterPriorDistTypes[param])
+        .map((param) => {
+            const paramDistType = parameterPriorDistTypes[param]
+            const currentDistribution = distributions[paramDistType]
+            const currentPdf = logScale ? distributions[paramDistType].logPdf : distributions[paramDistType].pdf
+            
+            return currentPdf(parameters[param].renderProject(parameterValues[param])/pdfScaleFactor, parameterPriorDistParams[param])
+        })
+    )
+    let currentPrior = $derived(paramsWithPrior.length ? paramsWithPrior.reduce((acc, p) => logScale ? acc + p : acc * p, 1) : null)
+
 
     function updateSlider(paramName, valueBag) {
         return (evt) => {
@@ -160,18 +172,24 @@
     .hud {
         display: grid;
         grid-template-rows: 1fr;
+        grid-template-columns: [side-start] 20em [side-end body-start] 1fr [body-end];
         place-content: stretch;
         place-items: stretch;
+        gap: 0.5em;
     }
 
     .hud > :global(*) {
-        grid-column: 1 / 1;
+        grid-column: body;
         grid-row: 1 / 1;
     }
 
     .ontop {
+        grid-column: side;
+        display: grid;
+        place-content: stretch;
         z-index: 1;
         pointer-events: none;
+        height: 100%;
     }
 
     :global(label, button, input, select, textarea) {
@@ -189,16 +207,54 @@
     }
     
     .controls {
-        background-color: #0003;
+        background-color: #f0f0f0;
         padding: 1em;
-        width: max-content;
         margin: 1em;
+        border: 3px solid #555;
+        width: 100%;
+        box-sizing: border-box;
+        overflow: auto;
+        max-height: 90vh;
+        pointer-events: all;
     }
 
     .prior-config {
         padding: 0.5em;
         background-color: #0003;
         margin: 0.2em;
+    }
+
+    .choice-box {
+        display: grid;
+    }
+
+    .slider-box {
+        margin-top: 0.5em;
+        display: grid;
+    }
+
+
+    .slider-label {
+        font-weight: bold;
+    }
+
+    h1, h2, h3 {
+        margin: 0;
+    }
+
+    h1 {
+        font-size: 1.3em;
+        margin-bottom: 1em;
+    }
+
+    .control-head {
+        margin-top: 1em;
+        display: flex;
+        justify-content: space-between;
+    }
+
+    .choice-label {
+        font-weight: bold;
     }
 </style>
 
@@ -273,50 +329,102 @@
     <div class="hud">
         <div class="ontop">
             <div class="controls">
-                <div>
-                    Likelihood Distribution:<br>
+                <h1>Parameter Estimation</h1>
+                <label class="choice-box">
+                    <span class="choice-label">Likelihood Distribution:</span>
                     <select bind:value={distType}>
                         {#each Object.entries(distributions) as [c, d]}
                             <option value={c}>{d.name}</option>
                         {/each}
                     </select>
-                </div>
+                </label>
 
-                <h2>Parameters</h2>
+                <h2 class="control-head">Dist. Parameters</h2>
                 {#each currentParameters as param(param)}
                      <div style="display: grid;">
-                        <label for="">{parameters[param].name} ({parameters[param].symbol})</label>
-                        <input style:accent-color={currentDistribution.color} type="range" step={parameters[param].slider.step} oninput={updateSlider(param, parameterValues)} value={parameters[param].slider.unproject(parameterValues[param])} min={parameters[param].slider.min} max={parameters[param].slider.max} />
-                        <div class="prior-config">Prior Dist.:
-                            <select bind:value={parameterPriorDistTypes[param]}>
-                                <option value={null}>None</option>
-                                {#each parameters[param].priors as c}
-                                    <option value={c}>{distributions[c].name}</option>
-                                {/each}
-                            </select>
+                        <label class="slider-box">
+                            <span class="slider-label">{parameters[param].name} ({parameters[param].symbol})</span>
+                            <input style:accent-color={currentDistribution.color} type="range" step={parameters[param].slider.step} oninput={updateSlider(param, parameterValues)} value={parameters[param].slider.unproject(parameterValues[param])} min={parameters[param].slider.min} max={parameters[param].slider.max} />
+                        </label>
+                        <div class="prior-config">
+                            <label class="choice-box">
+                                <span class="choice-label"> Prior Distribution:</span>
+                                <select bind:value={parameterPriorDistTypes[param]}>
+                                    <option value={null}>None</option>
+                                    {#each parameters[param].priors as c}
+                                        <option value={c}>{distributions[c].name}</option>
+                                    {/each}
+                                </select>
+                            </label>
                             {#if parameterPriorDistTypes[param]}
                             {#each distributions[parameterPriorDistTypes[param]].parameters as priorParam(priorParam)}
-                                <div style="display: grid;">
-                                    <label for="">{parameters[priorParam].name} ({parameters[priorParam].symbol})</label>
+                                <label class="slider-box">
+                                    <span class="slider-label">{parameters[priorParam].name} ({parameters[priorParam].symbol})</span>
                                     <input type="range"  step={parameters[priorParam].slider.step} style:accent-color={parameters[param].color} oninput={updateSlider(priorParam, parameterPriorDistParams[param])} value={parameters[priorParam].slider.unproject(parameterPriorDistParams[param][priorParam])} min={parameters[priorParam].slider.min} max={parameters[priorParam].slider.max} />
-                                </div>
+                                </label>
                             {/each}
                             {/if}
                         </div>
                     </div>
                 {/each}
 
-                <h3>View</h3>
+                <h2 class="control-head">Samples
+                    {#if samples.length}
+                     <button onclick={clearSamples}>Clear</button>
+                    {/if}
+                </h2>
+
+                {#if !samples.length}
+                    <p>
+                        Click on the light orange bar below the horizotal axis to create samples. Samples are required to determine the likelihood of the current parameter values.
+                    </p>
+                {:else}
+                    <p>
+                        Samples: {samples.length} / {samples.length + sampleColors.length}
+                    </p>
+                {/if}
+
+                {#if samples.length}
+                <h2 class="control-head">Current Likelihood</h2>
+
+                <p>
+                    Given the set of samples, the likelihood of the the current parameter values is: 
+                    <strong> {decimalFormat.format(likelihood)}</strong>
+                </p>
+                {/if}
+
+                <h2 class="control-head">Current Prior</h2>
+                {#if paramsWithPrior.length == currentParameters.length}
+                <p>
+                    You have specified prior distributions for all parameters. This corresponds to a baysian appraoch to statistics.
+                </p>
+                {:else if paramsWithPrior.length==0}
+                <p>
+                    You have not specified any prior distributions for the parameters. Not specifying any priors corresponds to an frequentist approach to statistics.
+                </p>
+                <p>
+                    Try to specify a prior distribution for each parameter to describe your assumtion regarding the parameters value.
+                </p>
+                {:else}
+                <p>
+                    You have specified prior distributions for some of the parameters. Try to specify priors for all parameters.
+                </p>
+                {/if}
+                {#if currentPrior !== null}
+                <p>
+                    Given the selected prior distributions for the parameters, the prior for current parameter values is is:
+                    <strong>{decimalFormat.format(currentPrior)}</strong>
+                </p>
+                {/if}
+                
+                <h2 class="control-head">View</h2>
 
                 <div>
-                    Probability Scale:<br>
-                    <label><input type="radio" value={false} bind:group={logScale} /> Linear</label>
-                    <label><input type="radio" value={true} bind:group={logScale} /> Log</label>
+                    <div>Probability Scale:</div>
+                    <label class="radio-label"><input type="radio" value={false} bind:group={logScale} /> Linear</label>
+                    <label class="radio-label"><input type="radio" value={true} bind:group={logScale} /> Log</label>
                 </div>
     
-                <div>
-                    Likelihood: {decimalFormat.format(likelihood)}
-                </div>
             </div>
         </div>
         <Canvas viewBox="-400 -400 800 800" preserveAspectRatio="xMidYMid meet" viewport={reactiveVP}>
@@ -365,32 +473,30 @@
                     </g>
                     {#each currentParameters.filter((param) => parameterPriorDistTypes[param]) as param, i (param)}
                         {@const paramDistType = parameterPriorDistTypes[param]}
-                        {#if paramDistType }
-                            {@const currentDistribution = distributions[paramDistType]}
-                            {@const currentPdf = scalePdf(logScale ? distributions[paramDistType].logPdf : distributions[paramDistType].pdf, pdfScaleFactor)}
-                            {@const vOffset = 180 + 100*i}
-                            {@const hOffset = parameters[param].renderOffset(parameterValues)}
+                        {@const currentDistribution = distributions[paramDistType]}
+                        {@const currentPdf = scalePdf(logScale ? distributions[paramDistType].logPdf : distributions[paramDistType].pdf, pdfScaleFactor)}
+                        {@const vOffset = 180 + 100*i}
+                        {@const hOffset = parameters[param].renderOffset(parameterValues)}
+                        <g>
+                            <text font-size="0.8em" x={hOffset + 5} y={vOffset+10} dominant-baseline="middle">Prior Dist. of {parameters[param].name} ({parameters[param].symbol})</text>
+
+                            <polyline class="plot-area" fill-opacity="0.1" fill={parameters[param].color} stroke="none" stroke-width="2" points={`${adapter.visibleMin.x+axisPadding},${vOffset},`+join(",", map(adapter.linspaceX(axisPadding), x => `${x},${vOffset+0.2*yScale*currentPdf(x-hOffset,parameterPriorDistParams[param])}`))+`,${adapter.visibleMax.x-axisPadding},${vOffset}`} />
+                            <polyline class="plot-line" fill="none" stroke={parameters[param].color} stroke-width="2" points={`${adapter.visibleMin.x+axisPadding},${vOffset},`+join(",", map(adapter.linspaceX(axisPadding), x => `${x},${vOffset+0.2*yScale*currentPdf(x-hOffset,parameterPriorDistParams[param])}`))+`,${adapter.visibleMax.x-axisPadding},${vOffset}`} />
+                                
                             <g>
-                                <text font-size="0.8em" x={hOffset + 5} y={vOffset+10} dominant-baseline="middle">Prior Dist. of {parameters[param].name} ({parameters[param].symbol})</text>
-
-                                <polyline class="plot-area" fill-opacity="0.1" fill={parameters[param].color} stroke="none" stroke-width="2" points={`${adapter.visibleMin.x+axisPadding},${vOffset},`+join(",", map(adapter.linspaceX(axisPadding), x => `${x+hOffset},${vOffset+0.2*yScale*currentPdf(x,parameterPriorDistParams[param])}`))+`,${adapter.visibleMax.x-axisPadding},${vOffset}`} />
-                                <polyline class="plot-line" fill="none" stroke={parameters[param].color} stroke-width="2" points={`${adapter.visibleMin.x+axisPadding},${vOffset},`+join(",", map(adapter.linspaceX(axisPadding), x => `${x+hOffset},${vOffset+0.2*yScale*currentPdf(x,parameterPriorDistParams[param])}`))+`,${adapter.visibleMax.x-axisPadding},${vOffset}`} />
-                                  
+                                <line class="axis-line" stroke="black" x1={hOffset} x2={hOffset} y1={vOffset+10} y2={vOffset-50} />
+                                <line class="axis-line" stroke="black" x1={adapter.visibleMin.x} x2={adapter.visibleMax.x} y1={vOffset} y2={vOffset} />
+                                
                                 <g>
-                                    <line class="axis-line" stroke="black" x1={hOffset} x2={hOffset} y1={vOffset+10} y2={vOffset-50} />
-                                    <line class="axis-line" stroke="black" x1={adapter.visibleMin.x} x2={adapter.visibleMax.x} y1={vOffset} y2={vOffset} />
-                                    
-                                    <g>
-                                        <path class="axis-arrowhead" d="M{adapter.visibleMax.x},{vOffset}l-10,-5v10z" fill="black" />
-                                        <path class="axis-arrowhead" d="M{hOffset},{vOffset-50}l-5,10h10z" fill="black" />
-                                    </g>
+                                    <path class="axis-arrowhead" d="M{adapter.visibleMax.x},{vOffset}l-10,-5v10z" fill="black" />
+                                    <path class="axis-arrowhead" d="M{hOffset},{vOffset-50}l-5,10h10z" fill="black" />
                                 </g>
-
-                                <line x1={hOffset+parameters[param].renderProject(parameterValues[param])} y1={vOffset} x2={hOffset+parameters[param].renderProject(parameterValues[param])} y2={vOffset+0.2*yScale*currentPdf(parameters[param].renderProject(parameterValues[param]),parameterPriorDistParams[param])} stroke={parameters[param].color}></line>
-                                <circle r="2" cx={hOffset+parameters[param].renderProject(parameterValues[param])} cy={vOffset} fill={parameters[param].color}></circle>
-                                <circle r="2" cx={hOffset+parameters[param].renderProject(parameterValues[param])} cy={vOffset+0.2*yScale*currentPdf(parameters[param].renderProject(parameterValues[param]),parameterPriorDistParams[param])} fill={parameters[param].color}></circle>
                             </g>
-                        {/if}
+
+                            <line x1={hOffset+parameters[param].renderProject(parameterValues[param])} y1={vOffset} x2={hOffset+parameters[param].renderProject(parameterValues[param])} y2={vOffset+0.2*yScale*currentPdf(parameters[param].renderProject(parameterValues[param]),parameterPriorDistParams[param])} stroke={parameters[param].color}></line>
+                            <circle r="2" cx={hOffset+parameters[param].renderProject(parameterValues[param])} cy={vOffset} fill={parameters[param].color}></circle>
+                            <circle r="2" cx={hOffset+parameters[param].renderProject(parameterValues[param])} cy={vOffset+0.2*yScale*currentPdf(parameters[param].renderProject(parameterValues[param]),parameterPriorDistParams[param])} fill={parameters[param].color}></circle>
+                        </g>
                     {/each}
                     <g>
                         <rect cursor="copy" fill-opacity="0.2" fill="#ffaa00" x={adapter.visibleMin.x+axisPadding} y={0}  width={adapter.visibleWidth-2*axisPadding} height={40} onpointerdown={adapter.delegate(addSample)} />
