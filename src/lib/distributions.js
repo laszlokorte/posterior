@@ -4,6 +4,7 @@ function gamma(z) {
 
 export const parameters = {
     mean: {
+        priors: ['gauss', 'laplace', 'uniform', 'chi', 'chi2'],
         color: 'magenta',
         default: 0,
         renderOffset(all) {
@@ -36,6 +37,7 @@ export const parameters = {
         }
     },
     variance: {
+        priors: ['uniform', 'chi', 'chi2'],
         color: 'cyan',
         default: 6400,
         renderOffset(all) {
@@ -68,6 +70,7 @@ export const parameters = {
         }
     },
     scale: {
+        priors: ['uniform', 'chi', 'chi2'],
         color: 'orange',
         default: 80,
         renderOffset(all) {
@@ -100,6 +103,7 @@ export const parameters = {
         }
     },
     min: {
+        priors: ['gauss', 'laplace', 'uniform', 'chi', 'chi2'],
         color: 'purple',
         default: -80,
         renderOffset(all) {
@@ -132,6 +136,7 @@ export const parameters = {
         },
     },
     max: {
+        priors: ['gauss', 'laplace', 'uniform', 'chi', 'chi2'],
         color: 'teal',
         default: 80,
         renderOffset(all) {
@@ -164,6 +169,7 @@ export const parameters = {
         },
     },
     degree: {
+        priors: ['uniform', 'chi', 'chi2'],
         color: 'red',
         default: 2,
         renderOffset(all) {
@@ -250,15 +256,16 @@ export const distributions = {
         }
     },
     chi: {
+        pdfScale: 50,
         pdf(x, {degree}) {
             if(x<=0) return 0
-            x = x/100
-            return Math.pow(x,degree-1)/Math.pow(2,degree/2)/gamma(degree/2) * Math.exp(-x*x/2) / 100
+            x = x / distributions.chi.pdfScale
+            return Math.pow(x,degree-1)/Math.pow(2,degree/2)/gamma(degree/2) * Math.exp(-x*x/2) / distributions.chi.pdfScale * 2
         },
-        logPdf(x, {degree}) {    
+        logPdf(x, {degree}) {   
             if(x<=0) return 0
-            x = x/100        
-            return (((degree-1)*Math.log(x)-(degree/2)*Math.log(2)-Math.log(gamma(degree/2)) + (-x*x/2)) - Math.log(100))/3600
+            x = x / distributions.chi.pdfScale        
+            return (((degree-1)*Math.log(x)-(degree/2)*Math.log(2)-Math.log(gamma(degree/2)) + (-x*x/2)) - Math.log(distributions.chi.pdfScale))/3600
         },
         get parameters () {
             return ['degree']
@@ -271,15 +278,16 @@ export const distributions = {
         }
     },
     chi2: {
+        pdfScale: 50,
         pdf(x, {degree}) {
             if(x<=0) return 0
-            x = x/100
-            return Math.pow(x,degree/2-1)/Math.pow(2,degree/2)/gamma(degree/2) * Math.exp(-x/2) / 100
+            x = x / distributions.chi2.pdfScale
+            return Math.pow(x,degree/2-1)/Math.pow(2,degree/2)/gamma(degree/2) * Math.exp(-x/2) / distributions.chi2.pdfScale
         },
         logPdf(x, {degree}) {
             if(x<=0) return 0
-            x = x/100
-            return ((degree/2-1)*Math.log(x)-(degree/2)*Math.log(2)-Math.log(gamma(degree/2)) - (-x/2) - Math.log(100))/3600
+            x = x / distributions.chi2.pdfScale
+            return ((degree/2-1)*Math.log(x)-(degree/2)*Math.log(2)-Math.log(gamma(degree/2)) - (-x/2) - Math.log(distributions.chi2.pdfScale))/3600
         },
         get parameters () {
             return ['degree']
