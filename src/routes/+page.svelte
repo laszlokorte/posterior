@@ -298,7 +298,7 @@
                             {#each distributions[parameterPriorDistTypes[param]].parameters as priorParam(priorParam)}
                                 <div style="display: grid;">
                                     <label for="">{parameters[priorParam].name} ({parameters[priorParam].symbol})</label>
-                                    <input type="range"  step={parameters[param].slider.step} style:accent-color={parameters[param].color} oninput={updateSlider(priorParam, parameterPriorDistParams[param])} value={parameters[priorParam].slider.unproject(parameterPriorDistParams[param][priorParam])} min={parameters[priorParam].slider.min} max={parameters[priorParam].slider.max} />
+                                    <input type="range"  step={parameters[priorParam].slider.step} style:accent-color={parameters[param].color} oninput={updateSlider(priorParam, parameterPriorDistParams[param])} value={parameters[priorParam].slider.unproject(parameterPriorDistParams[param][priorParam])} min={parameters[priorParam].slider.min} max={parameters[priorParam].slider.max} />
                                 </div>
                             {/each}
                             {/if}
@@ -316,16 +316,6 @@
     
                 <div>
                     Likelihood: {decimalFormat.format(likelihood)}
-                </div>
-    
-                <h3>Debug</h3>
-                <div>
-                    <label><input type="checkbox" bind:checked={debug}> Debug</label>
-                    <button onclick={clearSamples}>Clear</button>
-                    
-                    <p>
-                        {$reactiveVP.screen.size.x}&times;{$reactiveVP.screen.size.y}
-                    </p>
                 </div>
             </div>
         </div>
@@ -381,7 +371,7 @@
                             {@const vOffset = 180 + 100*i}
                             {@const hOffset = parameters[param].renderOffset(parameterValues)}
                             <g>
-                                <text x={adapter.visibleMin.x + 20} y={vOffset-10} dominant-baseline="middle">{parameters[param].name} Prior Distribution</text>
+                                <text font-size="0.8em" x={hOffset + 5} y={vOffset+10} dominant-baseline="middle">Prior Dist. of {parameters[param].name} ({parameters[param].symbol})</text>
 
                                 <polyline class="plot-area" fill-opacity="0.1" fill={parameters[param].color} stroke="none" stroke-width="2" points={`${adapter.visibleMin.x+axisPadding},${vOffset},`+join(",", map(adapter.linspaceX(axisPadding), x => `${x+hOffset},${vOffset+0.2*yScale*currentPdf(x,parameterPriorDistParams[param])}`))+`,${adapter.visibleMax.x-axisPadding},${vOffset}`} />
                                 <polyline class="plot-line" fill="none" stroke={parameters[param].color} stroke-width="2" points={`${adapter.visibleMin.x+axisPadding},${vOffset},`+join(",", map(adapter.linspaceX(axisPadding), x => `${x+hOffset},${vOffset+0.2*yScale*currentPdf(x,parameterPriorDistParams[param])}`))+`,${adapter.visibleMax.x-axisPadding},${vOffset}`} />
@@ -404,7 +394,8 @@
                     {/each}
                     <g>
                         <rect cursor="copy" fill-opacity="0.2" fill="#ffaa00" x={adapter.visibleMin.x+axisPadding} y={0}  width={adapter.visibleWidth-2*axisPadding} height={40} onpointerdown={adapter.delegate(addSample)} />
-                        <text x={adapter.visibleMin.x + 20} y={20} dominant-baseline="middle">Samples</text>
+                        <text font-size="0.8em" x={adapter.visibleMax.x - 20} y={20} dominant-baseline="middle" text-anchor="end" fill="#aa6600">(Samples)</text>
+                        <text font-size="0.8em" x={adapter.visibleMax.x - 20} y={60} dominant-baseline="middle" text-anchor="end">(Parameters)</text>
                     </g>
                     <g pointer-events="none">
                         {#each samples as {x,color}}

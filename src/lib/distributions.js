@@ -5,7 +5,7 @@ function gamma(z) {
 export const parameters = {
     mean: {
         priors: ['gauss', 'laplace', 'exponential', 'uniform', 'chi', 'chi2'],
-        color: 'magenta',
+        color: 'MediumVioletRed',
         default: 0,
         renderOffset(all) {
             return 0
@@ -38,7 +38,7 @@ export const parameters = {
     },
     variance: {
         priors: ['uniform', 'chi', 'chi2','exponential'],
-        color: 'cyan',
+        color: 'darkcyan',
         default: 6400,
         renderOffset(all) {
             return all.mean
@@ -105,9 +105,9 @@ export const parameters = {
     rate: {
         priors: ['uniform', 'chi', 'chi2','exponential'],
         color: 'aquamarine',
-        default: 2,
+        default: 0.01,
         renderOffset(all) {
-            return all.mean
+            return 0
         },
         renderProject(v) {
             return 1/v
@@ -203,7 +203,7 @@ export const parameters = {
     },
     degree: {
         priors: ['uniform', 'chi', 'chi2','exponential'],
-        color: 'red',
+        color: 'hotpink',
         default: 2,
         renderOffset(all) {
             return 0
