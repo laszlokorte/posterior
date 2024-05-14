@@ -85,7 +85,7 @@ export const parameters = {
         renderProject(v) {
             return v
         },
-        renderUbProject(v) {
+        renderUnProject(v) {
             return v
         },
         clampProject(all, newVal) {
@@ -121,7 +121,7 @@ export const parameters = {
         renderProject(v) {
             return 1/v
         },
-        renderUbProject(v) {
+        renderUnProject(v) {
             return 1/v
         },
         clampProject(all, newVal) {
