@@ -26,6 +26,15 @@ export function join(sep, gen) {
     return result
 }
 
+export function reduce(initial, fn, gen) {
+    let result = initial
+    for(const v of gen) {
+        result = fn(result, v)
+    }
+
+    return result
+}
+
 export function clamp2D(min, max, xy) {
     return {
         x: clamp(min.x, max.x, xy.x),

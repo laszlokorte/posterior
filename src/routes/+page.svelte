@@ -4,7 +4,7 @@
 <script>
   import Canvas from '../lib/Canvas.svelte'
   import {Viewport, ReactiveViewport} from '../lib/viewport.js'
-  import {join, map} from '../lib/utils.js'
+  import {join, map, reduce} from '../lib/utils.js'
   import {distributions, parameters} from '../lib/distributions.js'
 
     const pdfScaleFactor = 1
@@ -103,6 +103,16 @@
     let currentDistribution = $derived(distributions[distType])
     let currentParameters = $derived(distributions[distType].parameters)
     let currentPdf = $derived(scalePdf(logScale ? distributions[distType].logPdf : distributions[distType].pdf, pdfScaleFactor))
+
+    const currentLikelihood = $derived((p, pv) => {
+        return samples.reduce((acc, {x}) => {
+            const nv = acc*currentPdf(x, {...parameterValues, [p]: pv});
+            if(isNaN(nv)) {
+                return 0
+            }
+            return nv
+        }, Math.exp(samples.length))
+    })
 
     let paramsWithPrior = $derived(currentParameters
         .filter((param) => parameterPriorDistTypes[param])
@@ -266,6 +276,7 @@
         <text font-size="0.8em" class="label-text" x={mean} y={105} text-anchor="middle" stroke="white" stroke-width="5" paint-order="stroke">{parameters[paramName].name}</text>  
     </g>
 {/snippet}
+
 
 {#snippet varianceHandle(viewBox, paramName, variance, relativeOffset)}
     {@const adapter = viewBox.svgAdapter}             
@@ -475,29 +486,58 @@
                         {@const paramDistType = parameterPriorDistTypes[param]}
                         {@const currentDistribution = distributions[paramDistType]}
                         {@const currentPdf = scalePdf(logScale ? distributions[paramDistType].logPdf : distributions[paramDistType].pdf, pdfScaleFactor)}
-                        {@const vOffset = 180 + 100*i}
+                        {@const vOffset = 170 + 70*(2*i+1)}
                         {@const hOffset = parameters[param].renderOffset(parameterValues)}
+                        {@const priorValues = [...map(adapter.linspaceX(axisPadding), x => [x, currentPdf(x-hOffset,parameterPriorDistParams[param])])] }
+                        {@const maxPrior = reduce(0, Math.max, map(priorValues, ([_,y]) => y))*100}
+
                         <g>
                             <text font-size="0.8em" x={hOffset + 5} y={vOffset+10} dominant-baseline="middle">Prior Dist. of {parameters[param].name} ({parameters[param].symbol})</text>
 
-                            <polyline class="plot-area" fill-opacity="0.1" fill={parameters[param].color} stroke="none" stroke-width="2" points={`${adapter.visibleMin.x+axisPadding},${vOffset},`+join(",", map(adapter.linspaceX(axisPadding), x => `${x},${vOffset+0.2*yScale*currentPdf(x-hOffset,parameterPriorDistParams[param])}`))+`,${adapter.visibleMax.x-axisPadding},${vOffset}`} />
-                            <polyline class="plot-line" fill="none" stroke={parameters[param].color} stroke-width="2" points={`${adapter.visibleMin.x+axisPadding},${vOffset},`+join(",", map(adapter.linspaceX(axisPadding), x => `${x},${vOffset+0.2*yScale*currentPdf(x-hOffset,parameterPriorDistParams[param])}`))+`,${adapter.visibleMax.x-axisPadding},${vOffset}`} />
+                            <polyline class="plot-area" fill-opacity="0.1" fill={parameters[param].color} stroke="none" stroke-width="2" points={`${adapter.visibleMin.x+axisPadding},${vOffset},`+join(",", map(priorValues, ([x,y]) => `${x},${vOffset+0.2*yScale*y/maxPrior}`))+`,${adapter.visibleMax.x-axisPadding},${vOffset}`} />
+                            <polyline class="plot-line" fill="none" stroke={parameters[param].color} stroke-width="2" points={join(",", map(priorValues, ([x,y]) => `${x},${vOffset+0.2*yScale*y/maxPrior}`))} />
                                 
                             <g>
-                                <line class="axis-line" stroke="black" x1={hOffset} x2={hOffset} y1={vOffset+10} y2={vOffset-50} />
+                                <line class="axis-line" stroke="black" x1={hOffset} x2={hOffset} y1={vOffset+10} y2={vOffset-40} />
                                 <line class="axis-line" stroke="black" x1={adapter.visibleMin.x} x2={adapter.visibleMax.x} y1={vOffset} y2={vOffset} />
                                 
                                 <g>
                                     <path class="axis-arrowhead" d="M{adapter.visibleMax.x},{vOffset}l-10,-5v10z" fill="black" />
-                                    <path class="axis-arrowhead" d="M{hOffset},{vOffset-50}l-5,10h10z" fill="black" />
+                                    <path class="axis-arrowhead" d="M{hOffset},{vOffset-40}l-5,10h10z" fill="black" />
                                 </g>
                             </g>
 
-                            <line x1={hOffset+parameters[param].renderProject(parameterValues[param])} y1={vOffset} x2={hOffset+parameters[param].renderProject(parameterValues[param])} y2={vOffset+0.2*yScale*currentPdf(parameters[param].renderProject(parameterValues[param]),parameterPriorDistParams[param])} stroke={parameters[param].color}></line>
+                            <line x1={hOffset+parameters[param].renderProject(parameterValues[param])} y1={vOffset} x2={hOffset+parameters[param].renderProject(parameterValues[param])} y2={vOffset+0.2*yScale/maxPrior*currentPdf(parameters[param].renderProject(parameterValues[param]),parameterPriorDistParams[param])} stroke={parameters[param].color}></line>
                             <circle r="2" cx={hOffset+parameters[param].renderProject(parameterValues[param])} cy={vOffset} fill={parameters[param].color}></circle>
-                            <circle r="2" cx={hOffset+parameters[param].renderProject(parameterValues[param])} cy={vOffset+0.2*yScale*currentPdf(parameters[param].renderProject(parameterValues[param]),parameterPriorDistParams[param])} fill={parameters[param].color}></circle>
+                            <circle r="2" cx={hOffset+parameters[param].renderProject(parameterValues[param])} cy={vOffset+0.2*yScale/maxPrior*currentPdf(parameters[param].renderProject(parameterValues[param]),parameterPriorDistParams[param])} fill={parameters[param].color}></circle>
                         </g>
                     {/each}
+
+                    {#each currentParameters as param, i (param)}
+                        {@const vOffset = 170 + 70*(i*2)}
+                        {@const hOffset = parameters[param].renderOffset(parameterValues)}
+                        {@const likelihoodValues = [...map(adapter.linspaceX(axisPadding), x => [x,currentLikelihood(param, parameters[param].renderUnProject(x-hOffset))])] }
+                        {@const maxLikl = reduce(0, Math.max, map(likelihoodValues, ([_,y]) => y))*100}
+                        <g>
+                            <text font-size="0.8em" x={hOffset + 5} y={vOffset+10} dominant-baseline="middle">Likelihood Dist. of {parameters[param].name} ({parameters[param].symbol})</text>
+                            <polyline class="plot-area" fill-opacity="0.1" fill={parameters[param].color} stroke="none" stroke-width="2" points={`${adapter.visibleMin.x+axisPadding},${vOffset},`+join(",", map(likelihoodValues, ([x,y]) => `${x},${vOffset+0.2*yScale*y/maxLikl}`))+`,${adapter.visibleMax.x-axisPadding},${vOffset}`} />
+                            <polyline class="plot-line" fill="none" stroke={parameters[param].color} stroke-width="2" points={join(",", map(likelihoodValues, ([x,y]) => `${x},${vOffset+0.2*yScale*y/maxLikl}`))} />
+                            <g>
+                                <line class="axis-line" stroke="black" x1={hOffset} x2={hOffset} y1={vOffset+10} y2={vOffset-40} />
+                                <line class="axis-line" stroke="black" x1={adapter.visibleMin.x} x2={adapter.visibleMax.x} y1={vOffset} y2={vOffset} />
+                                
+                                <g>
+                                    <path class="axis-arrowhead" d="M{adapter.visibleMax.x},{vOffset}l-10,-5v10z" fill="black" />
+                                    <path class="axis-arrowhead" d="M{hOffset},{vOffset-40}l-5,10h10z" fill="black" />
+                                </g>
+                            </g>
+
+                            <line x1={hOffset+parameters[param].renderProject(parameterValues[param])} y1={vOffset} x2={hOffset+parameters[param].renderProject(parameterValues[param])} y2={vOffset+0.2*yScale*currentLikelihood(param, parameterValues[param])/maxLikl} stroke={parameters[param].color}></line>
+                            <circle r="2" cx={hOffset+parameters[param].renderProject(parameterValues[param])} cy={vOffset} fill={parameters[param].color}></circle>
+                            <circle r="2" cx={hOffset+parameters[param].renderProject(parameterValues[param])} cy={vOffset+0.2*yScale*currentLikelihood(param, parameterValues[param])/maxLikl} fill={parameters[param].color}></circle>
+                        </g>
+                    {/each}
+
                     <g>
                         <rect cursor="copy" fill-opacity="0.2" fill="#ffaa00" x={adapter.visibleMin.x+axisPadding} y={0}  width={adapter.visibleWidth-2*axisPadding} height={40} onpointerdown={adapter.delegate(addSample)} />
                         <text font-size="0.8em" x={adapter.visibleMax.x - 20} y={20} dominant-baseline="middle" text-anchor="end" fill="#aa6600">(Samples)</text>

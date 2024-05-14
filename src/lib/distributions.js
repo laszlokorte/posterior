@@ -13,6 +13,9 @@ export const parameters = {
         renderProject(v) {
             return v
         },
+        renderUnProject(v) {
+            return v
+        },
         clampProject(all, newVal) {
             return newVal
         },
@@ -46,6 +49,9 @@ export const parameters = {
         renderProject(v) {
             return Math.sqrt(v)
         },
+        renderUnProject(v) {
+            return v*v*Math.sign(v)
+        },
         clampProject(all, newVal) {
             return Math.max(0, newVal)
         },
@@ -77,6 +83,9 @@ export const parameters = {
             return all.mean
         },
         renderProject(v) {
+            return v
+        },
+        renderUbProject(v) {
             return v
         },
         clampProject(all, newVal) {
@@ -112,6 +121,9 @@ export const parameters = {
         renderProject(v) {
             return 1/v
         },
+        renderUbProject(v) {
+            return 1/v
+        },
         clampProject(all, newVal) {
             return Math.max(0, newVal)
         },
@@ -143,6 +155,9 @@ export const parameters = {
             return 0
         },
         renderProject(v) {
+            return v
+        },
+        renderUnProject(v) {
             return v
         },
         clampProject(all, newVal) {
@@ -178,6 +193,9 @@ export const parameters = {
         renderProject(v) {
             return v
         },
+        renderUnProject(v) {
+            return v
+        },
         clampProject(all, newVal) {
             return Math.max(all.min, newVal)
         },
@@ -210,6 +228,9 @@ export const parameters = {
         },
         renderProject(v) {
             return v*25
+        },
+        renderUnProject(v) {
+            return v/25
         },
         clampProject(all, newVal) {
             return Math.max(0.25, newVal)
