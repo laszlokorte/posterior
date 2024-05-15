@@ -4,7 +4,7 @@
 <script>
   import Canvas from '../lib/Canvas.svelte'
   import {Viewport, ReactiveViewport} from '../lib/viewport.js'
-  import {join, map, reduce} from '../lib/utils.js'
+  import {join, map, reduce, filter} from '../lib/utils.js'
   import {distributions, parameters} from '../lib/distributions.js'
 
     const pdfScaleFactor = 1
@@ -24,6 +24,8 @@
     
     const id = (x) => x
     const squareDist2 = (m) => (x) => Math.pow(x-m, 2)
+
+    const xResolution = 0.75
 
     let debug = $state(false)
     let pressedParameter = $state(null)
@@ -68,6 +70,7 @@
         if(sampleColors.length) {
             samples.push({x, color: sampleColors.pop()})
         }
+        samples.sort(({x: a}, {x: b}) => b - a)
     }
 
     function clearSamples() {
@@ -106,6 +109,9 @@
 
     const currentLikelihood = $derived((p, pv) => {
         return samples.reduce((acc, {x}) => {
+            if(acc === 0) {
+                return 0
+            }
             const nv = acc*currentPdf(x, {...parameterValues, [p]: pv});
             if(isNaN(nv)) {
                 return 0
@@ -479,8 +485,8 @@
                         <path class="axis-arrowhead" d="M0,{adapter.visibleMin.y}l-5,10h10z" fill="black" />
                     </g>
                     <g>
-                        <polyline class="plot-area" fill-opacity="0.1" fill={currentDistribution.color} stroke="none" stroke-width="2" points={`${adapter.visibleMin.x+axisPadding},0,`+join(",", map(adapter.linspaceX(axisPadding), x => `${x},${yScale*currentPdf(x,parameterValues)}`))+`,${adapter.visibleMax.x-axisPadding},0`} />
-                        <polyline class="plot-line" fill="none" stroke={currentDistribution.color} stroke-width="2" points={join(",", map(adapter.linspaceX(axisPadding), x => `${x},${yScale*currentPdf(x,parameterValues)}`))} />
+                        <polyline class="plot-area" fill-opacity="0.1" fill={currentDistribution.color} stroke="none" stroke-width="2" points={`${adapter.visibleMin.x+axisPadding},0,`+join(",", map(adapter.linspaceX(axisPadding, xResolution), x => `${x},${yScale*currentPdf(x,parameterValues)}`))+`,${adapter.visibleMax.x-axisPadding},0`} />
+                        <polyline class="plot-line" fill="none" stroke={currentDistribution.color} stroke-width="2" points={join(",", map(adapter.linspaceX(axisPadding, xResolution), x => `${x},${yScale*currentPdf(x,parameterValues)}`))} />
                     </g>
                     {#each currentParameters.filter((param) => parameterPriorDistTypes[param]) as param, i (param)}
                         {@const paramDistType = parameterPriorDistTypes[param]}
@@ -488,8 +494,8 @@
                         {@const currentPdf = scalePdf(logScale ? distributions[paramDistType].logPdf : distributions[paramDistType].pdf, pdfScaleFactor)}
                         {@const vOffset = 170 + 70*(2*i+1)}
                         {@const hOffset = parameters[param].renderOffset(parameterValues)}
-                        {@const priorValues = [...map(adapter.linspaceX(axisPadding), x => [x, currentPdf(x-hOffset,parameterPriorDistParams[param])])] }
-                        {@const maxPrior = reduce(0, Math.max, map(priorValues, ([_,y]) => y))*100}
+                        {@const priorValues = [...map(adapter.linspaceX(axisPadding, xResolution), x => [x, currentPdf(x-hOffset,parameterPriorDistParams[param])])] }
+                        {@const maxPrior = (reduce(0, Math.max, map(priorValues, ([_,y]) => y))*100 || 1)}
 
                         <g>
                             <text font-size="0.8em" x={hOffset + 5} y={vOffset+10} dominant-baseline="middle">Prior Dist. of {parameters[param].name} ({parameters[param].symbol})</text>
@@ -516,8 +522,8 @@
                     {#each currentParameters as param, i (param)}
                         {@const vOffset = 170 + 70*(i*2)}
                         {@const hOffset = parameters[param].renderOffset(parameterValues)}
-                        {@const likelihoodValues = [...map(adapter.linspaceX(axisPadding), x => [x,currentLikelihood(param, parameters[param].renderUnProject(x-hOffset))])] }
-                        {@const maxLikl = reduce(0, Math.max, map(likelihoodValues, ([_,y]) => y))*100}
+                        {@const likelihoodValues = [...map(map(adapter.linspaceX(axisPadding, xResolution), x => [x, parameters[param].renderUnProject(x-hOffset)]), ([x, rx]) => [x, parameters[param].isInRange(rx) ? currentLikelihood(param, rx) : 0])] }
+                        {@const maxLikl = (reduce(0, Math.max, map(likelihoodValues, ([_,y]) => y))*100 || 1)}
                         <g>
                             <text font-size="0.8em" x={hOffset + 5} y={vOffset+10} dominant-baseline="middle">Likelihood Dist. of {parameters[param].name} ({parameters[param].symbol})</text>
                             <polyline class="plot-area" fill-opacity="0.1" fill={parameters[param].color} stroke="none" stroke-width="2" points={`${adapter.visibleMin.x+axisPadding},${vOffset},`+join(",", map(likelihoodValues, ([x,y]) => `${x},${vOffset+0.2*yScale*y/maxLikl}`))+`,${adapter.visibleMax.x-axisPadding},${vOffset}`} />

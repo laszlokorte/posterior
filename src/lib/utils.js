@@ -14,6 +14,14 @@ export function* map(gen, fn) {
     }
 }
 
+export function* filter(gen, pred) {
+    for(const v of gen) {
+        if(pred(v)) {
+            yield v
+        }
+    }
+}
+
 export function join(sep, gen) {
     let result = ''
     for(const v of gen) {

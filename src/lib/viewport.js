@@ -345,12 +345,12 @@ export class ViewportSVGAdapter {
         return clamp(this.visibleMin.y, this.visibleMax.y, v)
     }
 
-    *linspaceX(padding) {
-        yield* linspace(this.visibleMin.x+padding, this.visibleMax.x-padding, this.visibleWidth)
+    *linspaceX(padding, res = 1) {
+        yield* linspace(this.visibleMin.x+padding, this.visibleMax.x-padding, this.visibleWidth * res)
     }
 
-    *linspaceY(padding) {
-        yield* linspace(this.visibleMin.y+padding, this.visibleMax.y-padding, this.visibleHeight)
+    *linspaceY(padding, res = 1) {
+        yield* linspace(this.visibleMin.y+padding, this.visibleMax.y-padding, this.visibleHeight * res)
     }
 }
 

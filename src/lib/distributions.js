@@ -16,6 +16,9 @@ export const parameters = {
         renderUnProject(v) {
             return v
         },
+        isInRange(v) {
+            return true
+        },
         clampProject(all, newVal) {
             return newVal
         },
@@ -52,6 +55,9 @@ export const parameters = {
         renderUnProject(v) {
             return v*v*Math.sign(v)
         },
+        isInRange(v) {
+            return v >= 0
+        },
         clampProject(all, newVal) {
             return Math.max(0, newVal)
         },
@@ -86,7 +92,10 @@ export const parameters = {
             return v
         },
         renderUnProject(v) {
-            return v
+            return Math.max(0, v)
+        },
+        isInRange(v) {
+            return v > 0
         },
         clampProject(all, newVal) {
             return Math.max(0, newVal)
@@ -122,7 +131,10 @@ export const parameters = {
             return 1/v
         },
         renderUnProject(v) {
-            return 1/v
+            return 1/Math.max(0, v)
+        },
+        isInRange(v) {
+            return v > 0
         },
         clampProject(all, newVal) {
             return Math.max(0, newVal)
@@ -160,6 +172,9 @@ export const parameters = {
         renderUnProject(v) {
             return v
         },
+        isInRange(v) {
+            return true
+        },
         clampProject(all, newVal) {
             return Math.min(all.max, newVal)
         },
@@ -195,6 +210,9 @@ export const parameters = {
         },
         renderUnProject(v) {
             return v
+        },
+        isInRange(v) {
+            return true
         },
         clampProject(all, newVal) {
             return Math.max(all.min, newVal)
@@ -232,8 +250,11 @@ export const parameters = {
         renderUnProject(v) {
             return v/25
         },
+        isInRange(v) {
+            return v > 0
+        },
         clampProject(all, newVal) {
-            return Math.max(0.25, newVal)
+            return Math.max(0.2, newVal)
         },
         handleProject(all, v) {
             return v*25
@@ -244,8 +265,8 @@ export const parameters = {
         symbol: 'k',
         name: 'Degree of Freedom',
         slider: {
-            step: .1,
-            min: 1,
+            step: .01,
+            min: .2,
             max: 25,
             project(all, v) {
                 return v
