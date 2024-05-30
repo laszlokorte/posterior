@@ -438,7 +438,7 @@
                         The kind of model itself is also an (often discrete) hyper-parameter and can be choosen to best fit the observations and domain knowledge.
                     </p>
                     <p>
-                        Click on the yellow shaded area below the horitontal axis on the right to <em>place some sample points</em> as you like. These represent some measurements you have taken. Then select a <em>model distribution</em> and adjust its parameters to fit the sample points as best as possible.
+                        Click on the yellow shaded area below the horizontal axis on the right to <em>place some sample points</em> as you like. These represent some measurements you have taken. Then select a <em>model distribution</em> and adjust its parameters to fit the sample points as best as possible.
                     </p>
                     <p>
                         Instead of only fitting the sample points, you can also introduce your own assumtions (prior knowledge) into the model building by setting a prior distribution for each parameter. These prior distributions describe how strong you expect a parameter value to in a specific range. For the best effect you configure your priors <em>before you place you sample points</em>.
