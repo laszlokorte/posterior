@@ -30,6 +30,7 @@
 
     let debug = $state(false)
     let pressedParameter = $state(null)
+    let pressedPrior = $state(null)
     let distType = $state('gauss')
     let pressOffset = $state(0)
     let logScale = $state(false)
@@ -42,7 +43,7 @@
 
     let parameterPriorDistTypes = $state(Object.fromEntries(
         Object.entries(parameters).map(([k,p]) => [
-            k, 'uniform'
+            k, null
         ])
     ))
 
@@ -78,22 +79,34 @@
         samples.length = 0
     }
 
-    function pressParameter(local, evt, vp, param, mirror=1) {
+    function pressParameter(local, evt, vp, param, mirror=1, dist) {
         pressedParameter = param
+        pressedPrior = dist
 
-        pressOffset = (mirror*local.x - parameters[pressedParameter].handleProject(parameterValues, parameterValues[param] ?? parameters[param].default) - parameters[pressedParameter].renderOffset(parameterValues))
+        if(dist) {
+            pressOffset = (mirror*local.x - parameters[pressedParameter].handleProject(parameterPriorDistParams[dist], parameterPriorDistParams[dist][param] ?? parameters[param].default) - parameters[pressedParameter].renderOffset(parameterPriorDistParams[dist]))
+        } else {
+            pressOffset = (mirror*local.x - parameters[pressedParameter].handleProject(parameterValues, parameterValues[param] ?? parameters[param].default) - parameters[pressedParameter].renderOffset(parameterValues))
+        }
 
         evt.currentTarget.setPointerCapture(evt.pointerId);
     }
 
     function move(local, evt, vp, mirror=1) {
         if(pressedParameter !== null) {
-            parameterValues[pressedParameter] = parameters[pressedParameter].clampProject(parameterValues, parameters[pressedParameter].handleUnProject(parameterValues, (mirror*local.x - pressOffset) - parameters[pressedParameter].renderOffset(parameterValues)))
+            if(pressedPrior !== null) {
+                console.log("x", pressedPrior)
+                console.log("y", pressedParameter)
+                parameterPriorDistParams[pressedPrior][pressedParameter] = parameters[pressedParameter].clampProject(parameterPriorDistParams[pressedPrior], parameters[pressedParameter].handleUnProject(parameterPriorDistParams[pressedPrior], (mirror*local.x - pressOffset) - parameters[pressedParameter].renderOffset(parameterPriorDistParams[pressedPrior])))
+            } else {
+                parameterValues[pressedParameter] = parameters[pressedParameter].clampProject(parameterValues, parameters[pressedParameter].handleUnProject(parameterValues, (mirror*local.x - pressOffset) - parameters[pressedParameter].renderOffset(parameterValues)))
+            }
         }
     }
 
     function release(local, evt, vp) {
         pressedParameter = null
+        pressedPrior = null
     }
 
     
@@ -284,10 +297,10 @@
     }
 </style>
 
-{#snippet meanHandle(color, viewBox, paramName, mean, relativeOffset, showLabel = true)}
+{#snippet meanHandle(color, viewBox, paramName, mean, relativeOffset, showLabel, dist)}
     {@const adapter = viewBox.svgAdapter}
     <g>
-        <circle class="handle" onpointermove={adapter.delegate(move)} onpointerup={adapter.delegate(release)} onpointerdown={adapter.delegate(pressParameter, paramName)} class:state-active={pressedParameter==paramName} fill={color} cursor="move" cx={mean} cy={20} r="10"></circle>
+        <circle class="handle" onpointermove={adapter.delegate(move)} onpointerup={adapter.delegate(release)} onpointerdown={adapter.delegate(pressParameter, paramName, 1, dist)} class:state-active={pressedParameter==paramName} fill={color} cursor="move" cx={mean} cy={20} r="10"></circle>
         <text font-size="0.8em" class="label-text" x={relativeOffset+mean} y={20} dominant-baseline="middle" text-anchor="middle" fill="#ffffff">{parameters[paramName].symbol}</text>    
         {#if showLabel}
         <text font-size="0.8em" class="label-text" x={relativeOffset+mean+ 15} y={20} dominant-baseline="middle" text-anchor="start" stroke="white" stroke-width="5" paint-order="stroke">{parameters[paramName].name}</text>  
@@ -296,15 +309,15 @@
 {/snippet}
 
 
-{#snippet varianceHandle(color, viewBox, paramName, variance, relativeOffset, showLabel = true)}
+{#snippet varianceHandle(color, viewBox, paramName, variance, relativeOffset, showLabel, dist)}
     {@const adapter = viewBox.svgAdapter}             
     <line stroke="black" x1={relativeOffset} x2={relativeOffset} y1={-5} y2={5} />
     <line stroke-dasharray="3 3" stroke-dashoffset={-(variance)} stroke="black" x1={relativeOffset-(variance)} x2={relativeOffset+(variance)} y1={0} y2={0} />
     <g>
-        <circle class="handle" onpointermove={adapter.delegate(move, -1)} onpointerup={adapter.delegate(release)} onpointerdown={adapter.delegate(pressParameter, paramName, -1)} class:state-active={pressedParameter==paramName} fill={color} cursor="move" cx={relativeOffset - (variance)} cy={0} r="10"></circle>
+        <circle class="handle" onpointermove={adapter.delegate(move, -1)} onpointerup={adapter.delegate(release)} onpointerdown={adapter.delegate(pressParameter, paramName, -1, dist)} class:state-active={pressedParameter==paramName} fill={color} cursor="move" cx={relativeOffset - (variance)} cy={0} r="10"></circle>
     </g>
     <g>
-        <circle class="handle" onpointermove={adapter.delegate(move)} onpointerup={adapter.delegate(release)} onpointerdown={adapter.delegate(pressParameter, paramName)} class:state-active={pressedParameter==paramName} fill={color} cursor="move" cx={relativeOffset + (variance)} cy={0} r="10"></circle>
+        <circle class="handle" onpointermove={adapter.delegate(move)} onpointerup={adapter.delegate(release)} onpointerdown={adapter.delegate(pressParameter, paramName, 1, dist)} class:state-active={pressedParameter==paramName} fill={color} cursor="move" cx={relativeOffset + (variance)} cy={0} r="10"></circle>
         <text font-size="0.8em" class="label-text" x={relativeOffset+(variance)} y={0} dominant-baseline="middle" text-anchor="middle" fill="#ffffff">{parameters[paramName].symbol}</text>   
         {#if showLabel} 
         <text font-size="0.8em" class="label-text" x={relativeOffset+(variance)} y={30} text-anchor="start" stroke="white" stroke-width="5" paint-order="stroke">{parameters[paramName].name}</text>    
@@ -312,15 +325,15 @@
     </g>
 {/snippet}
 
-{#snippet stdevHandle(color, viewBox, paramName, stdev, relativeOffset, showLabel = true)}
+{#snippet stdevHandle(color, viewBox, paramName, stdev, relativeOffset, showLabel, dist)}
     {@const adapter = viewBox.svgAdapter}             
     <line stroke="black" x1={relativeOffset} x2={relativeOffset} y1={-5} y2={5} />
     <line stroke-dasharray="3 3" stroke-dashoffset={-(stdev)} stroke="black" x1={relativeOffset-(stdev)} x2={relativeOffset+(stdev)} y1={0} y2={0} />
     <g>
-        <circle class="handle" onpointermove={adapter.delegate(move, -1)} onpointerup={adapter.delegate(release)} onpointerdown={adapter.delegate(pressParameter, paramName, -1)} class:state-active={pressedParameter==paramName} fill={color} cursor="move" cx={relativeOffset - (stdev)} cy={0} r="10"></circle>
+        <circle class="handle" onpointermove={adapter.delegate(move, -1)} onpointerup={adapter.delegate(release)} onpointerdown={adapter.delegate(pressParameter, paramName, -1, dist)} class:state-active={pressedParameter==paramName} fill={color} cursor="move" cx={relativeOffset - (stdev)} cy={0} r="10"></circle>
     </g>
     <g>
-        <circle class="handle" onpointermove={adapter.delegate(move)} onpointerup={adapter.delegate(release)} onpointerdown={adapter.delegate(pressParameter, paramName)} class:state-active={pressedParameter==paramName} fill={color} cursor="move" cx={relativeOffset + (stdev)} cy={0} r="10"></circle>
+        <circle class="handle" onpointermove={adapter.delegate(move)} onpointerup={adapter.delegate(release)} onpointerdown={adapter.delegate(pressParameter, paramName, 1, dist)} class:state-active={pressedParameter==paramName} fill={color} cursor="move" cx={relativeOffset + (stdev)} cy={0} r="10"></circle>
         <text font-size="0.8em" class="label-text" x={relativeOffset+(stdev)} y={0} dominant-baseline="middle" text-anchor="middle" fill="#ffffff">{parameters[paramName].symbol}</text>   
         {#if showLabel} 
         <text font-size="0.8em" class="label-text" x={relativeOffset+(stdev)+ 15} y={0}  dominant-baseline="middle" text-anchor="start" stroke="white" stroke-width="5" paint-order="stroke">{parameters[paramName].name}</text>    
@@ -328,15 +341,15 @@
     </g>
 {/snippet}
 
-{#snippet scaleHandle(color, viewBox, paramName, variance, relativeOffset, showLabel = true)}
+{#snippet scaleHandle(color, viewBox, paramName, variance, relativeOffset, showLabel, dist)}
     {@const adapter = viewBox.svgAdapter}             
-    <line stroke="black" x1={relativeOffset} x2={relativeOffset} y1={65} y2={55} />
+    <line stroke="black" x1={relativeOffset} x2={relativeOffset} y1={-5} y2={5} />
     <line stroke-dasharray="3 3" stroke-dashoffset={-(variance)} stroke="black" x1={relativeOffset-(variance)} x2={relativeOffset+(variance)} y1={0} y2={0} />
     <g>
-        <circle class="handle" onpointermove={adapter.delegate(move,-1)} onpointerup={adapter.delegate(release)} onpointerdown={adapter.delegate(pressParameter, paramName, -1)} class:state-active={pressedParameter==paramName} fill={color} cursor="move" cx={relativeOffset - (variance)} cy={0} r="10"></circle>
+        <circle class="handle" onpointermove={adapter.delegate(move,-1)} onpointerup={adapter.delegate(release)} onpointerdown={adapter.delegate(pressParameter, paramName, -1, dist)} class:state-active={pressedParameter==paramName} fill={color} cursor="move" cx={relativeOffset - (variance)} cy={0} r="10"></circle>
     </g>
     <g>
-        <circle class="handle" onpointermove={adapter.delegate(move, +1)} onpointerup={adapter.delegate(release)} onpointerdown={adapter.delegate(pressParameter, paramName, +1)} class:state-active={pressedParameter==paramName} fill={color} cursor="move" cx={relativeOffset + (variance)} cy={0} r="10"></circle>
+        <circle class="handle" onpointermove={adapter.delegate(move, +1)} onpointerup={adapter.delegate(release)} onpointerdown={adapter.delegate(pressParameter, paramName, +1, dist)} class:state-active={pressedParameter==paramName} fill={color} cursor="move" cx={relativeOffset + (variance)} cy={0} r="10"></circle>
         <text font-size="0.8em" class="label-text" x={relativeOffset+(variance)} y={0} dominant-baseline="middle" text-anchor="middle" fill="#ffffff">{parameters[paramName].symbol}</text>    
         {#if showLabel}
         <text font-size="0.8em" class="label-text" x={relativeOffset+(variance) + 15} y={0} dominant-baseline="middle" text-anchor="start" stroke="white" stroke-width="5" paint-order="stroke">{parameters[paramName].name}</text>   
@@ -344,12 +357,12 @@
     </g>
 {/snippet}
 
-{#snippet rateHandle(color, viewBox, paramName, rate, relativeOffset, showLabel = true)}
+{#snippet rateHandle(color, viewBox, paramName, rate, relativeOffset, showLabel, dist)}
     {@const adapter = viewBox.svgAdapter}             
-    <line stroke="black" x1={relativeOffset} x2={relativeOffset} y1={65} y2={55} />
+    <line stroke="black" x1={relativeOffset} x2={relativeOffset} y1={-5} y2={5} />
     <line stroke-dasharray="3 3" stroke-dashoffset={0} stroke="black" x1={relativeOffset} x2={relativeOffset+(rate)} y1={0} y2={0} />
     <g>
-        <circle class="handle" onpointermove={adapter.delegate(move, +1)} onpointerup={adapter.delegate(release)} onpointerdown={adapter.delegate(pressParameter, paramName, +1)} class:state-active={pressedParameter==paramName} fill={color} cursor="move" cx={relativeOffset + (rate)} cy={0} r="10"></circle>
+        <circle class="handle" onpointermove={adapter.delegate(move, +1)} onpointerup={adapter.delegate(release)} onpointerdown={adapter.delegate(pressParameter, paramName, +1, dist)} class:state-active={pressedParameter==paramName} fill={color} cursor="move" cx={relativeOffset + (rate)} cy={0} r="10"></circle>
         <text font-size="0.8em" class="label-text" x={relativeOffset+(rate)} y={0} dominant-baseline="middle" text-anchor="middle" fill="#ffffff">{parameters[paramName].symbol}</text>    
         {#if showLabel}
         <text font-size="0.8em" class="label-text" x={relativeOffset+(rate) + 15} y={0} dominant-baseline="middle" text-anchor="start" stroke="white" stroke-width="5" paint-order="stroke">{parameters[paramName].name}</text>   
@@ -357,10 +370,10 @@
     </g>
 {/snippet}
 
-{#snippet minMaxHandle(color, viewBox, paramName, value, relativeOffset, showLabel = true)}
+{#snippet minMaxHandle(color, viewBox, paramName, value, relativeOffset, showLabel, dist)}
     {@const adapter = viewBox.svgAdapter}
     <g>
-        <circle class="handle" onpointermove={adapter.delegate(move)} onpointerup={adapter.delegate(release)} onpointerdown={adapter.delegate(pressParameter, paramName)} class:state-active={pressedParameter==paramName} fill={color} cursor="move" cx={value + relativeOffset} cy={0} r="10"></circle>
+        <circle class="handle" onpointermove={adapter.delegate(move)} onpointerup={adapter.delegate(release)} onpointerdown={adapter.delegate(pressParameter, paramName, 1, dist)} class:state-active={pressedParameter==paramName} fill={color} cursor="move" cx={value + relativeOffset} cy={0} r="10"></circle>
         <text font-size="0.8em" class="label-text" x={value + relativeOffset} y={0} dominant-baseline="middle" text-anchor="middle" fill="#ffffff">{parameters[paramName].symbol}</text>
         {#if showLabel}
         {#if parameters[paramName].name == 'Min'}
@@ -372,10 +385,10 @@
     </g>
 {/snippet}
 
-{#snippet degreeHandle(color, viewBox, paramName, degree, relativeOffset, showLabel = true)}
+{#snippet degreeHandle(color, viewBox, paramName, degree, relativeOffset, showLabel, dist)}
     {@const adapter = viewBox.svgAdapter}
     <g>
-        <circle class="handle" onpointermove={adapter.delegate(move)} onpointerup={adapter.delegate(release)} onpointerdown={adapter.delegate(pressParameter, paramName)} class:state-active={pressedParameter==paramName} fill={color} cursor="move" cx={degree + relativeOffset} cy={0} r="10"></circle>
+        <circle class="handle" onpointermove={adapter.delegate(move)} onpointerup={adapter.delegate(release)} onpointerdown={adapter.delegate(pressParameter, paramName, 1, dist)} class:state-active={pressedParameter==paramName} fill={color} cursor="move" cx={degree + relativeOffset} cy={0} r="10"></circle>
         <text font-size="0.8em" class="label-text" x={degree + relativeOffset} y={0} dominant-baseline="middle" text-anchor="middle" fill="#ffffff">{parameters[paramName].symbol}</text>    
         {#if showLabel}
         <text font-size="0.8em" class="label-text" x={degree + relativeOffset + 15} y={0}  dominant-baseline="middle" text-anchor="start" stroke="white" stroke-width="5" paint-order="stroke">{parameters[paramName].name}</text>  
@@ -564,7 +577,7 @@
                             {#each currentDistribution.parameters as priorParam}
                                 {@const pv = $state.snapshot(parameterPriorDistParams[param][priorParam])}
                                 {#each parameterHandles[priorParam] as h}
-                                    {@render h(parameters[param].color, viewport, priorParam, parameters[priorParam].handleProject(parameterPriorDistParams[param], pv), hOffset, false)}
+                                    {@render h(parameters[param].color, viewport, priorParam, parameters[priorParam].handleProject(parameterPriorDistParams[param], pv), hOffset + parameters[priorParam].renderOffset(parameterPriorDistParams[param]), false, param)}
                                 {/each}
                             {/each}
                         </g>
@@ -617,7 +630,7 @@
                     {#each currentParameters as param}
                         {@const pv = $state.snapshot(parameterValues[param])}
                         {#each parameterHandles[param] as h}
-                            {@render h(currentDistribution.color, viewport, param, parameters[param].handleProject(parameterValues, pv), parameters[param].renderOffset(parameterValues))}
+                            {@render h(currentDistribution.color, viewport, param, parameters[param].handleProject(parameterValues, pv), parameters[param].renderOffset(parameterValues), true, null)}
                         {/each}
                     {/each}
                     </g>
