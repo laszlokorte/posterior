@@ -5,7 +5,7 @@ function gamma(z) {
 export const parameters = {
     mean: {
         priors: ['gauss', 'laplace', 'exponential', 'uniform', 'chi', 'chi2'],
-        color: 'MediumVioletRed',
+        color: '#ff00aa',
         default: 0,
         renderOffset(all) {
             return 0
@@ -44,7 +44,7 @@ export const parameters = {
     },
     variance: {
         priors: ['uniform','exponential', 'chi', 'chi2'],
-        color: 'darkcyan',
+        color: '#00aaaa',
         default: 6400,
         renderOffset(all) {
             return all.mean
@@ -84,7 +84,7 @@ export const parameters = {
     },
     stdev: {
         priors: ['uniform','exponential', 'chi', 'chi2'],
-        color: 'darkcyan',
+        color: '#00aaaa',
         default: 80,
         renderOffset(all) {
             return all.mean
@@ -123,7 +123,7 @@ export const parameters = {
     },
     scale: {
         priors: ['uniform','exponential', 'chi', 'chi2'],
-        color: 'orange',
+        color: '#ee9900',
         default: 80,
         renderOffset(all) {
             return all.mean
@@ -162,7 +162,7 @@ export const parameters = {
     },
     rate: {
         priors: ['uniform','exponential', 'chi', 'chi2'],
-        color: 'aquamarine',
+        color: '#00bbff',
         default: 0.01,
         renderOffset(all) {
             return 0
@@ -201,7 +201,7 @@ export const parameters = {
     },
     min: {
         priors: ['gauss', 'laplace', 'exponential', 'uniform', 'chi', 'chi2'],
-        color: 'purple',
+        color: '#cc00cc',
         default: -80,
         renderOffset(all) {
             return 0
@@ -240,7 +240,7 @@ export const parameters = {
     },
     max: {
         priors: ['gauss', 'laplace', 'exponential', 'uniform', 'chi', 'chi2'],
-        color: 'teal',
+        color: '#00ddaa',
         default: 80,
         renderOffset(all) {
             return 0
@@ -279,7 +279,7 @@ export const parameters = {
     },
     degree: {
         priors: ['uniform','exponential', 'chi', 'chi2'],
-        color: 'hotpink',
+        color: '#ff00ee',
         default: 2,
         renderOffset(all) {
             return 0
@@ -338,7 +338,7 @@ export const distributions = {
             return "Gaußian"
         },
         get color() {
-            return 'darkred'
+            return '#bb0000'
         }
     },
     laplace: {
@@ -358,7 +358,7 @@ export const distributions = {
             return "Laplacian"
         },
         get color() {
-            return 'darkgreen'
+            return '#00bb00'
         }
     },
     exponential: {
@@ -381,7 +381,7 @@ export const distributions = {
             return "Exponential"
         },
         get color() {
-            return 'rebeccapurple'
+            return '#aa00aa'
         }
     },
     uniform: {
@@ -398,7 +398,7 @@ export const distributions = {
             return "Uniform"
         },
         get color() {
-            return 'darkblue'
+            return '#0000bb'
         }
     },
     chi: {
@@ -420,7 +420,7 @@ export const distributions = {
             return "Chi"
         },
         get color() {
-            return 'brown'
+            return '#442200'
         }
     },
     chi2: {
@@ -442,7 +442,7 @@ export const distributions = {
             return "Chi-Squared"
         },
         get color() {
-            return 'brown'
+            return '#bb6600'
         }
     },
 }
