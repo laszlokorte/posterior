@@ -74,10 +74,50 @@ export const parameters = {
             min: 1,
             max: 100,
             project(all, v) {
-                return Math.pow(Math.max(this.min, Math.min(this.max, v)), 2)
+                const m = Math.max(this.min, Math.min(this.max, v))
+                return m*m
             },
             unproject(v) {
                 return Math.sqrt(v)
+            }
+        }
+    },
+    stdev: {
+        priors: ['uniform','exponential', 'chi', 'chi2'],
+        color: 'darkcyan',
+        default: 80,
+        renderOffset(all) {
+            return all.mean
+        },
+        renderProject(v) {
+            return v
+        },
+        renderUnProject(v) {
+            return v
+        },
+        isInRange(v) {
+            return v >= 0
+        },
+        clampProject(all, newVal) {
+            return Math.max(0, newVal)
+        },
+        handleProject(all, v) {
+            return v
+        },
+        handleUnProject(all, v) {
+            return v
+        },
+        symbol: '𝜎',
+        name: 'Standard Deviation',
+        slider: {
+            step: .1,
+            min: 1,
+            max: 100,
+            project(all, v) {
+                return Math.max(this.min, Math.min(this.max, v))
+            },
+            unproject(v) {
+                return v
             }
         }
     },
@@ -128,10 +168,10 @@ export const parameters = {
             return 0
         },
         renderProject(v) {
-            return 1/v
+            return v==0?0:1/v
         },
         renderUnProject(v) {
-            return 1/Math.max(0, v)
+            return Math.max(0, v==0?0:1/v)
         },
         isInRange(v) {
             return v > 0
@@ -140,10 +180,10 @@ export const parameters = {
             return Math.max(0, newVal)
         },
         handleProject(all, v) {
-            return 1/v
+            return v==0?0:1/v
         },
         handleUnProject(all, v) {
-            return 1/v
+            return v==0?0:1/v
         },
         symbol: '1/λ',
         name: '1/Rate',
@@ -280,14 +320,19 @@ export const parameters = {
 
 export const distributions = {
     gauss: {
-        pdf(x, {mean,variance}) {
-            return Math.exp(-0.5*Math.pow(x-mean,2)/variance)/Math.sqrt(2*Math.PI*variance)
+        pdf(x, {mean,stdev}) {
+            if(stdev == 0) {
+                return 0
+            }
+            const d = x-mean
+            return Math.exp(-0.5*d*d/(stdev*stdev))/Math.sqrt(2*Math.PI*(stdev*stdev))
         },
-        logPdf(x, {mean,variance}) {
-            return -0.5*Math.pow(x-mean,2)/variance/8000 - Math.log(Math.sqrt(2*Math.PI*variance))/8000
+        logPdf(x, {mean,stdev}) {
+            const d = x-mean
+            return -0.5*d*d/(stdev*stdev)/8000 - Math.log(Math.sqrt(2*Math.PI*(stdev*stdev)))/8000
         },
         get parameters () {
-            return ['mean','variance']
+            return ['mean','stdev']
         },
         get name () {
             return "Gaußian"
@@ -298,6 +343,9 @@ export const distributions = {
     },
     laplace: {
         pdf(x, {mean,scale}) {
+            if(scale == 0) {
+                return 0
+            }
             return Math.exp(-Math.abs((x-mean)/scale))/scale/2
         },
             logPdf(x, {mean,scale}) {

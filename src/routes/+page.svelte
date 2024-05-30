@@ -15,6 +15,7 @@
     const parameterHandles = {
         mean: [meanHandle],
         variance: [varianceHandle],
+        stdev: [stdevHandle],
         scale: [scaleHandle],
         rate: [rateHandle],
         min: [minMaxHandle],
@@ -23,7 +24,7 @@
     }
     
     const id = (x) => x
-    const squareDist2 = (m) => (x) => Math.pow(x-m, 2)
+    const squareDist2 = (m) => (x) => (x-m)*(x-m)
 
     const xResolution = 0.75
 
@@ -61,10 +62,12 @@
         '#c71585','#00fa9a',
         '#00ffff','#0000ff','#ff00ff','#1e90ff'])
 
-    let likelihood = $derived(
-        logScale ? samples.reduce((acc, {x}) => acc+currentPdf(x, parameterValues), 0)
-        : samples.reduce((acc, {x}) => acc*currentPdf(x, parameterValues), 1)
-    )
+    let likelihood = $derived.by(() => {
+        const pv = $state.snapshot(parameterValues)
+        
+        return logScale ? samples.reduce((acc, {x}) => acc+currentPdf(x, pv), 0)
+        : samples.reduce((acc, {x}) => acc*currentPdf(x, pv), 1)
+    })
 
     function addSample({x}) {
         if(sampleColors.length) {
@@ -105,19 +108,26 @@
 
     let currentDistribution = $derived(distributions[distType])
     let currentParameters = $derived(distributions[distType].parameters)
-    let currentPdf = $derived(scalePdf(logScale ? distributions[distType].logPdf : distributions[distType].pdf, pdfScaleFactor))
+    let currentPdf = $derived($state.snapshot(logScale ? distributions[distType].logPdf : distributions[distType].pdf))
 
-    const currentLikelihood = $derived((p, pv) => {
-        return samples.reduce((acc, {x}) => {
-            if(acc === 0) {
-                return 0
-            }
-            const nv = acc*currentPdf(x, {...parameterValues, [p]: pv});
-            if(isNaN(nv)) {
-                return 0
-            }
-            return nv
-        }, Math.exp(samples.length))
+    const currentLikelihood = $derived.by(() => {
+        const pvs = $state.snapshot(parameterValues)
+        const cpdf = $state.snapshot(currentPdf)
+        const smpls = $state.snapshot(samples)
+
+        return (p, pv) => {
+            const pvsInner = $state.snapshot({...pvs, [p]: pv})
+            return smpls.reduce((acc, {x}) => {
+                if(acc === 0) {
+                    return 0
+                }
+                const nv = acc*cpdf(x, pvsInner);
+                if(isNaN(nv)) {
+                    return 0
+                }
+                return nv
+            }, Math.exp(samples.length))
+        }
     })
 
     let paramsWithPrior = $derived(currentParameters
@@ -130,7 +140,10 @@
             return currentPdf(parameters[param].renderProject(parameterValues[param])/pdfScaleFactor, parameterPriorDistParams[param])
         })
     )
-    let currentPrior = $derived(paramsWithPrior.length ? paramsWithPrior.reduce((acc, p) => logScale ? acc + p : acc * p, 1) : null)
+    let currentPrior = $derived.by(() => {
+        const ls = $state.snapshot(logScale)
+        return paramsWithPrior.length ? paramsWithPrior.reduce((acc, p) => ls ? acc + p : acc * p, 1) : null
+    })
 
 
     function updateSlider(paramName, valueBag) {
@@ -295,6 +308,20 @@
         <circle class="handle" onpointermove={adapter.delegate(move)} onpointerup={adapter.delegate(release)} onpointerdown={adapter.delegate(pressParameter, paramName)} class:state-active={pressedParameter==paramName} fill={currentDistribution.color} cursor="move" cx={relativeOffset + (variance)} cy={60} r="10"></circle>
         <text font-size="0.8em" class="label-text" x={relativeOffset+(variance)} y={60} dominant-baseline="middle" text-anchor="middle" fill="#ffffff">{parameters[paramName].symbol}</text>    
         <text font-size="0.8em" class="label-text" x={relativeOffset+(variance)} y={90} text-anchor="middle" stroke="white" stroke-width="5" paint-order="stroke">{parameters[paramName].name}</text>    
+    </g>
+{/snippet}
+
+{#snippet stdevHandle(viewBox, paramName, stdev, relativeOffset)}
+    {@const adapter = viewBox.svgAdapter}             
+    <line stroke="black" x1={relativeOffset} x2={relativeOffset} y1={65} y2={55} />
+    <line stroke-dasharray="3 3" stroke-dashoffset={-(stdev)} stroke="black" x1={relativeOffset-(stdev)} x2={relativeOffset+(stdev)} y1={60} y2={60} />
+    <g>
+        <circle class="handle" onpointermove={adapter.delegate(move, -1)} onpointerup={adapter.delegate(release)} onpointerdown={adapter.delegate(pressParameter, paramName, -1)} class:state-active={pressedParameter==paramName} fill={currentDistribution.color} cursor="move" cx={relativeOffset - (stdev)} cy={60} r="10"></circle>
+    </g>
+    <g>
+        <circle class="handle" onpointermove={adapter.delegate(move)} onpointerup={adapter.delegate(release)} onpointerdown={adapter.delegate(pressParameter, paramName)} class:state-active={pressedParameter==paramName} fill={currentDistribution.color} cursor="move" cx={relativeOffset + (stdev)} cy={60} r="10"></circle>
+        <text font-size="0.8em" class="label-text" x={relativeOffset+(stdev)} y={60} dominant-baseline="middle" text-anchor="middle" fill="#ffffff">{parameters[paramName].symbol}</text>    
+        <text font-size="0.8em" class="label-text" x={relativeOffset+(stdev)} y={90} text-anchor="middle" stroke="white" stroke-width="5" paint-order="stroke">{parameters[paramName].name}</text>    
     </g>
 {/snippet}
 
@@ -491,7 +518,7 @@
                     {#each currentParameters.filter((param) => parameterPriorDistTypes[param]) as param, i (param)}
                         {@const paramDistType = parameterPriorDistTypes[param]}
                         {@const currentDistribution = distributions[paramDistType]}
-                        {@const currentPdf = scalePdf(logScale ? distributions[paramDistType].logPdf : distributions[paramDistType].pdf, pdfScaleFactor)}
+                        {@const currentPdf = $state.snapshot(logScale ? distributions[paramDistType].logPdf : distributions[paramDistType].pdf)}
                         {@const vOffset = 170 + 70*(2*i+1)}
                         {@const hOffset = parameters[param].renderOffset(parameterValues)}
                         {@const priorValues = [...map(adapter.linspaceX(axisPadding, xResolution), x => [x, currentPdf(x-hOffset,parameterPriorDistParams[param])])] }
@@ -522,12 +549,15 @@
                     {#each currentParameters as param, i (param)}
                         {@const vOffset = 170 + 70*(i*2)}
                         {@const hOffset = parameters[param].renderOffset(parameterValues)}
-                        {@const likelihoodValues = [...map(map(adapter.linspaceX(axisPadding, xResolution), x => [x, parameters[param].renderUnProject(x-hOffset)]), ([x, rx]) => [x, parameters[param].isInRange(rx) ? currentLikelihood(param, rx) : 0])] }
+                        {@const clh = $state.snapshot(currentLikelihood)}
+                        {@const pv = $state.snapshot(parameterValues[param])}
+                        {@const parameters_param = $state.snapshot(parameters[param])}
+                        {@const likelihoodValues = [...map(map(adapter.linspaceX(axisPadding, xResolution), x => [x, parameters_param.renderUnProject(x-hOffset)]), ([x, rx]) => [x, parameters_param.isInRange(rx) ? clh(param, rx) : 0])] }
                         {@const maxLikl = (reduce(0, Math.max, map(likelihoodValues, ([_,y]) => y))*100 || 1)}
                         <g>
-                            <text font-size="0.8em" x={hOffset + 5} y={vOffset+10} dominant-baseline="middle">Likelihood Dist. of {parameters[param].name} ({parameters[param].symbol})</text>
-                            <polyline class="plot-area" fill-opacity="0.1" fill={parameters[param].color} stroke="none" stroke-width="2" points={`${adapter.visibleMin.x+axisPadding},${vOffset},`+join(",", map(likelihoodValues, ([x,y]) => `${x},${vOffset+0.2*yScale*y/maxLikl}`))+`,${adapter.visibleMax.x-axisPadding},${vOffset}`} />
-                            <polyline class="plot-line" fill="none" stroke={parameters[param].color} stroke-width="2" points={join(",", map(likelihoodValues, ([x,y]) => `${x},${vOffset+0.2*yScale*y/maxLikl}`))} />
+                            <text font-size="0.8em" x={hOffset + 5} y={vOffset+10} dominant-baseline="middle">Likelihood Dist. of {parameters_param.name} ({parameters_param.symbol})</text>
+                            <polyline class="plot-area" fill-opacity="0.1" fill={parameters_param.color} stroke="none" stroke-width="2" points={`${adapter.visibleMin.x+axisPadding},${vOffset},`+join(",", map(likelihoodValues, ([x,y]) => `${x},${vOffset+0.2*yScale*y/maxLikl}`))+`,${adapter.visibleMax.x-axisPadding},${vOffset}`} />
+                            <polyline class="plot-line" fill="none" stroke={parameters_param.color} stroke-width="2" points={join(",", map(likelihoodValues, ([x,y]) => `${x},${vOffset+0.2*yScale*y/maxLikl}`))} />
                             <g>
                                 <line class="axis-line" stroke="black" x1={hOffset} x2={hOffset} y1={vOffset+10} y2={vOffset-40} />
                                 <line class="axis-line" stroke="black" x1={adapter.visibleMin.x} x2={adapter.visibleMax.x} y1={vOffset} y2={vOffset} />
@@ -538,9 +568,9 @@
                                 </g>
                             </g>
 
-                            <line x1={hOffset+parameters[param].renderProject(parameterValues[param])} y1={vOffset} x2={hOffset+parameters[param].renderProject(parameterValues[param])} y2={vOffset+0.2*yScale*currentLikelihood(param, parameterValues[param])/maxLikl} stroke={parameters[param].color}></line>
-                            <circle r="2" cx={hOffset+parameters[param].renderProject(parameterValues[param])} cy={vOffset} fill={parameters[param].color}></circle>
-                            <circle r="2" cx={hOffset+parameters[param].renderProject(parameterValues[param])} cy={vOffset+0.2*yScale*currentLikelihood(param, parameterValues[param])/maxLikl} fill={parameters[param].color}></circle>
+                            <line x1={hOffset+parameters_param.renderProject(pv)} y1={vOffset} x2={hOffset+parameters_param.renderProject(pv)} y2={vOffset+0.2*yScale*clh(param, pv)/maxLikl} stroke={parameters_param.color}></line>
+                            <circle r="2" cx={hOffset+parameters_param.renderProject(pv)} cy={vOffset} fill={parameters_param.color}></circle>
+                            <circle r="2" cx={hOffset+parameters_param.renderProject(pv)} cy={vOffset+0.2*yScale*clh(param, pv)/maxLikl} fill={parameters_param.color}></circle>
                         </g>
                     {/each}
 
@@ -559,8 +589,9 @@
 
                     
                     {#each currentParameters as param}
+                        {@const pv = $state.snapshot(parameterValues[param])}
                         {#each parameterHandles[param] as h}
-                            {@render h(viewport, param, parameters[param].handleProject(parameterValues, parameterValues[param]), parameters[param].renderOffset(parameterValues))}
+                            {@render h(viewport, param, parameters[param].handleProject(parameterValues, pv), parameters[param].renderOffset(parameterValues))}
                         {/each}
                     {/each}
                 {/if}
