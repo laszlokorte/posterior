@@ -42,7 +42,7 @@
 
     let parameterPriorDistTypes = $state(Object.fromEntries(
         Object.entries(parameters).map(([k,p]) => [
-            k, null
+            k, 'uniform'
         ])
     ))
 
@@ -57,10 +57,7 @@
     ))
 
     let samples = $state([])
-    let sampleColors = $state([
-        '#2f4f4f','#006400','#b8860b','#4b0082',
-        '#c71585','#00fa9a',
-        '#00ffff','#0000ff','#ff00ff','#1e90ff'])
+    let sampleColors = $state(Array(30).fill(null).map((_,i) => `hsl(${(360 * 1.6180339887 * i)%360},90%,50%)`))
 
     let likelihood = $derived.by(() => {
         const pv = $state.snapshot(parameterValues)
@@ -107,8 +104,8 @@
     }
 
     let currentDistribution = $derived(distributions[distType])
-    let currentParameters = $derived(distributions[distType].parameters)
-    let currentPdf = $derived($state.snapshot(logScale ? distributions[distType].logPdf : distributions[distType].pdf))
+    let currentParameters = $derived(currentDistribution.parameters)
+    let currentPdf = $derived($state.snapshot(logScale ? currentDistribution.logPdf : currentDistribution.pdf))
 
     const currentLikelihood = $derived.by(() => {
         const pvs = $state.snapshot(parameterValues)
@@ -287,84 +284,102 @@
     }
 </style>
 
-{#snippet meanHandle(viewBox, paramName, mean)}
+{#snippet meanHandle(color, viewBox, paramName, mean, relativeOffset, showLabel = true)}
     {@const adapter = viewBox.svgAdapter}
     <g>
-        <circle class="handle" onpointermove={adapter.delegate(move)} onpointerup={adapter.delegate(release)} onpointerdown={adapter.delegate(pressParameter, paramName)} class:state-active={pressedParameter==paramName} fill={currentDistribution.color} cursor="move" cx={mean} cy={80} r="10"></circle>
-        <text font-size="0.8em" class="label-text" x={mean} y={80} dominant-baseline="middle" text-anchor="middle" fill="#ffffff">{parameters[paramName].symbol}</text>    
-        <text font-size="0.8em" class="label-text" x={mean} y={105} text-anchor="middle" stroke="white" stroke-width="5" paint-order="stroke">{parameters[paramName].name}</text>  
+        <circle class="handle" onpointermove={adapter.delegate(move)} onpointerup={adapter.delegate(release)} onpointerdown={adapter.delegate(pressParameter, paramName)} class:state-active={pressedParameter==paramName} fill={color} cursor="move" cx={mean} cy={20} r="10"></circle>
+        <text font-size="0.8em" class="label-text" x={relativeOffset+mean} y={20} dominant-baseline="middle" text-anchor="middle" fill="#ffffff">{parameters[paramName].symbol}</text>    
+        {#if showLabel}
+        <text font-size="0.8em" class="label-text" x={relativeOffset+mean+ 15} y={20} dominant-baseline="middle" text-anchor="start" stroke="white" stroke-width="5" paint-order="stroke">{parameters[paramName].name}</text>  
+        {/if}
     </g>
 {/snippet}
 
 
-{#snippet varianceHandle(viewBox, paramName, variance, relativeOffset)}
+{#snippet varianceHandle(color, viewBox, paramName, variance, relativeOffset, showLabel = true)}
+    {@const adapter = viewBox.svgAdapter}             
+    <line stroke="black" x1={relativeOffset} x2={relativeOffset} y1={-5} y2={5} />
+    <line stroke-dasharray="3 3" stroke-dashoffset={-(variance)} stroke="black" x1={relativeOffset-(variance)} x2={relativeOffset+(variance)} y1={0} y2={0} />
+    <g>
+        <circle class="handle" onpointermove={adapter.delegate(move, -1)} onpointerup={adapter.delegate(release)} onpointerdown={adapter.delegate(pressParameter, paramName, -1)} class:state-active={pressedParameter==paramName} fill={color} cursor="move" cx={relativeOffset - (variance)} cy={0} r="10"></circle>
+    </g>
+    <g>
+        <circle class="handle" onpointermove={adapter.delegate(move)} onpointerup={adapter.delegate(release)} onpointerdown={adapter.delegate(pressParameter, paramName)} class:state-active={pressedParameter==paramName} fill={color} cursor="move" cx={relativeOffset + (variance)} cy={0} r="10"></circle>
+        <text font-size="0.8em" class="label-text" x={relativeOffset+(variance)} y={0} dominant-baseline="middle" text-anchor="middle" fill="#ffffff">{parameters[paramName].symbol}</text>   
+        {#if showLabel} 
+        <text font-size="0.8em" class="label-text" x={relativeOffset+(variance)} y={30} text-anchor="start" stroke="white" stroke-width="5" paint-order="stroke">{parameters[paramName].name}</text>    
+        {/if}
+    </g>
+{/snippet}
+
+{#snippet stdevHandle(color, viewBox, paramName, stdev, relativeOffset, showLabel = true)}
+    {@const adapter = viewBox.svgAdapter}             
+    <line stroke="black" x1={relativeOffset} x2={relativeOffset} y1={-5} y2={5} />
+    <line stroke-dasharray="3 3" stroke-dashoffset={-(stdev)} stroke="black" x1={relativeOffset-(stdev)} x2={relativeOffset+(stdev)} y1={0} y2={0} />
+    <g>
+        <circle class="handle" onpointermove={adapter.delegate(move, -1)} onpointerup={adapter.delegate(release)} onpointerdown={adapter.delegate(pressParameter, paramName, -1)} class:state-active={pressedParameter==paramName} fill={color} cursor="move" cx={relativeOffset - (stdev)} cy={0} r="10"></circle>
+    </g>
+    <g>
+        <circle class="handle" onpointermove={adapter.delegate(move)} onpointerup={adapter.delegate(release)} onpointerdown={adapter.delegate(pressParameter, paramName)} class:state-active={pressedParameter==paramName} fill={color} cursor="move" cx={relativeOffset + (stdev)} cy={0} r="10"></circle>
+        <text font-size="0.8em" class="label-text" x={relativeOffset+(stdev)} y={0} dominant-baseline="middle" text-anchor="middle" fill="#ffffff">{parameters[paramName].symbol}</text>   
+        {#if showLabel} 
+        <text font-size="0.8em" class="label-text" x={relativeOffset+(stdev)+ 15} y={0}  dominant-baseline="middle" text-anchor="start" stroke="white" stroke-width="5" paint-order="stroke">{parameters[paramName].name}</text>    
+        {/if}
+    </g>
+{/snippet}
+
+{#snippet scaleHandle(color, viewBox, paramName, variance, relativeOffset, showLabel = true)}
     {@const adapter = viewBox.svgAdapter}             
     <line stroke="black" x1={relativeOffset} x2={relativeOffset} y1={65} y2={55} />
-    <line stroke-dasharray="3 3" stroke-dashoffset={-(variance)} stroke="black" x1={relativeOffset-(variance)} x2={relativeOffset+(variance)} y1={60} y2={60} />
+    <line stroke-dasharray="3 3" stroke-dashoffset={-(variance)} stroke="black" x1={relativeOffset-(variance)} x2={relativeOffset+(variance)} y1={0} y2={0} />
     <g>
-        <circle class="handle" onpointermove={adapter.delegate(move, -1)} onpointerup={adapter.delegate(release)} onpointerdown={adapter.delegate(pressParameter, paramName, -1)} class:state-active={pressedParameter==paramName} fill={currentDistribution.color} cursor="move" cx={relativeOffset - (variance)} cy={60} r="10"></circle>
+        <circle class="handle" onpointermove={adapter.delegate(move,-1)} onpointerup={adapter.delegate(release)} onpointerdown={adapter.delegate(pressParameter, paramName, -1)} class:state-active={pressedParameter==paramName} fill={color} cursor="move" cx={relativeOffset - (variance)} cy={0} r="10"></circle>
     </g>
     <g>
-        <circle class="handle" onpointermove={adapter.delegate(move)} onpointerup={adapter.delegate(release)} onpointerdown={adapter.delegate(pressParameter, paramName)} class:state-active={pressedParameter==paramName} fill={currentDistribution.color} cursor="move" cx={relativeOffset + (variance)} cy={60} r="10"></circle>
-        <text font-size="0.8em" class="label-text" x={relativeOffset+(variance)} y={60} dominant-baseline="middle" text-anchor="middle" fill="#ffffff">{parameters[paramName].symbol}</text>    
-        <text font-size="0.8em" class="label-text" x={relativeOffset+(variance)} y={90} text-anchor="middle" stroke="white" stroke-width="5" paint-order="stroke">{parameters[paramName].name}</text>    
+        <circle class="handle" onpointermove={adapter.delegate(move, +1)} onpointerup={adapter.delegate(release)} onpointerdown={adapter.delegate(pressParameter, paramName, +1)} class:state-active={pressedParameter==paramName} fill={color} cursor="move" cx={relativeOffset + (variance)} cy={0} r="10"></circle>
+        <text font-size="0.8em" class="label-text" x={relativeOffset+(variance)} y={0} dominant-baseline="middle" text-anchor="middle" fill="#ffffff">{parameters[paramName].symbol}</text>    
+        {#if showLabel}
+        <text font-size="0.8em" class="label-text" x={relativeOffset+(variance) + 15} y={0} dominant-baseline="middle" text-anchor="start" stroke="white" stroke-width="5" paint-order="stroke">{parameters[paramName].name}</text>   
+        {/if} 
     </g>
 {/snippet}
 
-{#snippet stdevHandle(viewBox, paramName, stdev, relativeOffset)}
+{#snippet rateHandle(color, viewBox, paramName, rate, relativeOffset, showLabel = true)}
     {@const adapter = viewBox.svgAdapter}             
     <line stroke="black" x1={relativeOffset} x2={relativeOffset} y1={65} y2={55} />
-    <line stroke-dasharray="3 3" stroke-dashoffset={-(stdev)} stroke="black" x1={relativeOffset-(stdev)} x2={relativeOffset+(stdev)} y1={60} y2={60} />
+    <line stroke-dasharray="3 3" stroke-dashoffset={0} stroke="black" x1={relativeOffset} x2={relativeOffset+(rate)} y1={0} y2={0} />
     <g>
-        <circle class="handle" onpointermove={adapter.delegate(move, -1)} onpointerup={adapter.delegate(release)} onpointerdown={adapter.delegate(pressParameter, paramName, -1)} class:state-active={pressedParameter==paramName} fill={currentDistribution.color} cursor="move" cx={relativeOffset - (stdev)} cy={60} r="10"></circle>
-    </g>
-    <g>
-        <circle class="handle" onpointermove={adapter.delegate(move)} onpointerup={adapter.delegate(release)} onpointerdown={adapter.delegate(pressParameter, paramName)} class:state-active={pressedParameter==paramName} fill={currentDistribution.color} cursor="move" cx={relativeOffset + (stdev)} cy={60} r="10"></circle>
-        <text font-size="0.8em" class="label-text" x={relativeOffset+(stdev)} y={60} dominant-baseline="middle" text-anchor="middle" fill="#ffffff">{parameters[paramName].symbol}</text>    
-        <text font-size="0.8em" class="label-text" x={relativeOffset+(stdev)} y={90} text-anchor="middle" stroke="white" stroke-width="5" paint-order="stroke">{parameters[paramName].name}</text>    
-    </g>
-{/snippet}
-
-{#snippet scaleHandle(viewBox, paramName, variance, relativeOffset)}
-    {@const adapter = viewBox.svgAdapter}             
-    <line stroke="black" x1={relativeOffset} x2={relativeOffset} y1={65} y2={55} />
-    <line stroke-dasharray="3 3" stroke-dashoffset={-(variance)} stroke="black" x1={relativeOffset-(variance)} x2={relativeOffset+(variance)} y1={60} y2={60} />
-    <g>
-        <circle class="handle" onpointermove={adapter.delegate(move,-1)} onpointerup={adapter.delegate(release)} onpointerdown={adapter.delegate(pressParameter, paramName, -1)} class:state-active={pressedParameter==paramName} fill={currentDistribution.color} cursor="move" cx={relativeOffset - (variance)} cy={60} r="10"></circle>
-    </g>
-    <g>
-        <circle class="handle" onpointermove={adapter.delegate(move, +1)} onpointerup={adapter.delegate(release)} onpointerdown={adapter.delegate(pressParameter, paramName, +1)} class:state-active={pressedParameter==paramName} fill={currentDistribution.color} cursor="move" cx={relativeOffset + (variance)} cy={60} r="10"></circle>
-        <text font-size="0.8em" class="label-text" x={relativeOffset+(variance)} y={60} dominant-baseline="middle" text-anchor="middle" fill="#ffffff">{parameters[paramName].symbol}</text>    
-        <text font-size="0.8em" class="label-text" x={relativeOffset+(variance)} y={90} text-anchor="middle" stroke="white" stroke-width="5" paint-order="stroke">{parameters[paramName].name}</text>    
+        <circle class="handle" onpointermove={adapter.delegate(move, +1)} onpointerup={adapter.delegate(release)} onpointerdown={adapter.delegate(pressParameter, paramName, +1)} class:state-active={pressedParameter==paramName} fill={color} cursor="move" cx={relativeOffset + (rate)} cy={0} r="10"></circle>
+        <text font-size="0.8em" class="label-text" x={relativeOffset+(rate)} y={0} dominant-baseline="middle" text-anchor="middle" fill="#ffffff">{parameters[paramName].symbol}</text>    
+        {#if showLabel}
+        <text font-size="0.8em" class="label-text" x={relativeOffset+(rate) + 15} y={0} dominant-baseline="middle" text-anchor="start" stroke="white" stroke-width="5" paint-order="stroke">{parameters[paramName].name}</text>   
+        {/if} 
     </g>
 {/snippet}
 
-{#snippet rateHandle(viewBox, paramName, rate, relativeOffset)}
-    {@const adapter = viewBox.svgAdapter}             
-    <line stroke="black" x1={relativeOffset} x2={relativeOffset} y1={65} y2={55} />
-    <line stroke-dasharray="3 3" stroke-dashoffset={0} stroke="black" x1={relativeOffset} x2={relativeOffset+(rate)} y1={60} y2={60} />
-    <g>
-        <circle class="handle" onpointermove={adapter.delegate(move, +1)} onpointerup={adapter.delegate(release)} onpointerdown={adapter.delegate(pressParameter, paramName, +1)} class:state-active={pressedParameter==paramName} fill={currentDistribution.color} cursor="move" cx={relativeOffset + (rate)} cy={60} r="10"></circle>
-        <text font-size="0.8em" class="label-text" x={relativeOffset+(rate)} y={60} dominant-baseline="middle" text-anchor="middle" fill="#ffffff">{parameters[paramName].symbol}</text>    
-        <text font-size="0.8em" class="label-text" x={relativeOffset+(rate)} y={90} text-anchor="middle" stroke="white" stroke-width="5" paint-order="stroke">{parameters[paramName].name}</text>    
-    </g>
-{/snippet}
-
-{#snippet minMaxHandle(viewBox, paramName, mean)}
+{#snippet minMaxHandle(color, viewBox, paramName, value, relativeOffset, showLabel = true)}
     {@const adapter = viewBox.svgAdapter}
     <g>
-        <circle class="handle" onpointermove={adapter.delegate(move)} onpointerup={adapter.delegate(release)} onpointerdown={adapter.delegate(pressParameter, paramName)} class:state-active={pressedParameter==paramName} fill={currentDistribution.color} cursor="move" cx={mean} cy={80} r="10"></circle>
-        <text font-size="0.8em" class="label-text" x={mean} y={80} dominant-baseline="middle" text-anchor="middle" fill="#ffffff">{parameters[paramName].symbol}</text>    
-        <text font-size="0.8em" class="label-text" x={mean} y={105} text-anchor="middle" stroke="white" stroke-width="5" paint-order="stroke">{parameters[paramName].name}</text>  
+        <circle class="handle" onpointermove={adapter.delegate(move)} onpointerup={adapter.delegate(release)} onpointerdown={adapter.delegate(pressParameter, paramName)} class:state-active={pressedParameter==paramName} fill={color} cursor="move" cx={value + relativeOffset} cy={0} r="10"></circle>
+        <text font-size="0.8em" class="label-text" x={value + relativeOffset} y={0} dominant-baseline="middle" text-anchor="middle" fill="#ffffff">{parameters[paramName].symbol}</text>
+        {#if showLabel}
+        {#if parameters[paramName].name == 'Min'}
+        <text font-size="0.8em" class="label-text" x={value + relativeOffset - 15} y={0} dominant-baseline="middle" text-anchor="end" stroke="white" stroke-width="5" paint-order="stroke">{parameters[paramName].name}</text>  
+        {:else}
+        <text font-size="0.8em" class="label-text" x={value + relativeOffset + 15} y={0} dominant-baseline="middle" text-anchor="start" stroke="white" stroke-width="5" paint-order="stroke">{parameters[paramName].name}</text>  
+        {/if}
+        {/if}
     </g>
 {/snippet}
 
-{#snippet degreeHandle(viewBox, paramName, degree)}
+{#snippet degreeHandle(color, viewBox, paramName, degree, relativeOffset, showLabel = true)}
     {@const adapter = viewBox.svgAdapter}
     <g>
-        <circle class="handle" onpointermove={adapter.delegate(move)} onpointerup={adapter.delegate(release)} onpointerdown={adapter.delegate(pressParameter, paramName)} class:state-active={pressedParameter==paramName} fill={currentDistribution.color} cursor="move" cx={degree} cy={80} r="10"></circle>
-        <text font-size="0.8em" class="label-text" x={degree} y={80} dominant-baseline="middle" text-anchor="middle" fill="#ffffff">{parameters[paramName].symbol}</text>    
-        <text font-size="0.8em" class="label-text" x={degree} y={105} text-anchor="middle" stroke="white" stroke-width="5" paint-order="stroke">{parameters[paramName].name}</text>  
+        <circle class="handle" onpointermove={adapter.delegate(move)} onpointerup={adapter.delegate(release)} onpointerdown={adapter.delegate(pressParameter, paramName)} class:state-active={pressedParameter==paramName} fill={color} cursor="move" cx={degree + relativeOffset} cy={0} r="10"></circle>
+        <text font-size="0.8em" class="label-text" x={degree + relativeOffset} y={0} dominant-baseline="middle" text-anchor="middle" fill="#ffffff">{parameters[paramName].symbol}</text>    
+        {#if showLabel}
+        <text font-size="0.8em" class="label-text" x={degree + relativeOffset + 15} y={0}  dominant-baseline="middle" text-anchor="start" stroke="white" stroke-width="5" paint-order="stroke">{parameters[paramName].name}</text>  
+        {/if}
     </g>
 {/snippet}
 
@@ -524,7 +539,7 @@
                         {@const priorValues = [...map(adapter.linspaceX(axisPadding, xResolution), x => [x, currentPdf(x-hOffset,parameterPriorDistParams[param])])] }
                         {@const maxPrior = (reduce(0, Math.max, map(priorValues, ([_,y]) => y))*100 || 1)}
 
-                        <g>
+                        <g pointer-events="none">
                             <text font-size="0.8em" x={hOffset + 5} y={vOffset+10} dominant-baseline="middle">Prior Dist. of {parameters[param].name} ({parameters[param].symbol})</text>
 
                             <polyline class="plot-area" fill-opacity="0.1" fill={parameters[param].color} stroke="none" stroke-width="2" points={`${adapter.visibleMin.x+axisPadding},${vOffset},`+join(",", map(priorValues, ([x,y]) => `${x},${vOffset+0.2*yScale*y/maxPrior}`))+`,${adapter.visibleMax.x-axisPadding},${vOffset}`} />
@@ -544,6 +559,15 @@
                             <circle r="2" cx={hOffset+parameters[param].renderProject(parameterValues[param])} cy={vOffset} fill={parameters[param].color}></circle>
                             <circle r="2" cx={hOffset+parameters[param].renderProject(parameterValues[param])} cy={vOffset+0.2*yScale/maxPrior*currentPdf(parameters[param].renderProject(parameterValues[param]),parameterPriorDistParams[param])} fill={parameters[param].color}></circle>
                         </g>
+
+                        <g transform="translate(0, {vOffset-10})">
+                            {#each currentDistribution.parameters as priorParam}
+                                {@const pv = $state.snapshot(parameterPriorDistParams[param][priorParam])}
+                                {#each parameterHandles[priorParam] as h}
+                                    {@render h(parameters[param].color, viewport, priorParam, parameters[priorParam].handleProject(parameterPriorDistParams[param], pv), hOffset, false)}
+                                {/each}
+                            {/each}
+                        </g>
                     {/each}
 
                     {#each currentParameters as param, i (param)}
@@ -554,7 +578,7 @@
                         {@const parameters_param = $state.snapshot(parameters[param])}
                         {@const likelihoodValues = [...map(map(adapter.linspaceX(axisPadding, xResolution), x => [x, parameters_param.renderUnProject(x-hOffset)]), ([x, rx]) => [x, parameters_param.isInRange(rx) ? clh(param, rx) : 0])] }
                         {@const maxLikl = (reduce(0, Math.max, map(likelihoodValues, ([_,y]) => y))*100 || 1)}
-                        <g>
+                        <g pointer-events="none">
                             <text font-size="0.8em" x={hOffset + 5} y={vOffset+10} dominant-baseline="middle">Likelihood Dist. of {parameters_param.name} ({parameters_param.symbol})</text>
                             <polyline class="plot-area" fill-opacity="0.1" fill={parameters_param.color} stroke="none" stroke-width="2" points={`${adapter.visibleMin.x+axisPadding},${vOffset},`+join(",", map(likelihoodValues, ([x,y]) => `${x},${vOffset+0.2*yScale*y/maxLikl}`))+`,${adapter.visibleMax.x-axisPadding},${vOffset}`} />
                             <polyline class="plot-line" fill="none" stroke={parameters_param.color} stroke-width="2" points={join(",", map(likelihoodValues, ([x,y]) => `${x},${vOffset+0.2*yScale*y/maxLikl}`))} />
@@ -579,6 +603,7 @@
                         <text font-size="0.8em" x={adapter.visibleMax.x - 20} y={20} dominant-baseline="middle" text-anchor="end" fill="#aa6600">(Samples)</text>
                         <text font-size="0.8em" x={adapter.visibleMax.x - 20} y={60} dominant-baseline="middle" text-anchor="end">(Parameters)</text>
                     </g>
+
                     <g pointer-events="none">
                         {#each samples as {x,color}}
                         <circle cx={x} cy={20} r="5" fill={color}></circle>
@@ -588,12 +613,14 @@
                     </g>
 
                     
+                    <g transform="translate(0, 60)">
                     {#each currentParameters as param}
                         {@const pv = $state.snapshot(parameterValues[param])}
                         {#each parameterHandles[param] as h}
-                            {@render h(viewport, param, parameters[param].handleProject(parameterValues, pv), parameters[param].renderOffset(parameterValues))}
+                            {@render h(currentDistribution.color, viewport, param, parameters[param].handleProject(parameterValues, pv), parameters[param].renderOffset(parameterValues))}
                         {/each}
                     {/each}
+                    </g>
                 {/if}
             {/snippet}
         </Canvas>
