@@ -185,17 +185,17 @@ export const parameters = {
         handleUnProject(all, v) {
             return v==0?0:1/v
         },
-        symbol: '1/λ',
-        name: '1/Rate',
+        symbol: '𝜏',
+        name: 'Mean lifetime',
         slider: {
-            step: .01,
-            min: 0.1,
-            max: 3,
+            step: .0001,
+            min: 0.0,
+            max: 500,
             project(all, v) {
-                return Math.max(this.min*this.min*this.min*this.min, Math.min(this.max*this.max*this.max*this.max, (v*v*v*v)))
+                return v==0?0:1/v
             },
             unproject(v) {
-                return Math.sqrt(Math.sqrt(v))
+                return v==0?0:1/v
             }
         }
     },

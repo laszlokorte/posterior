@@ -105,8 +105,6 @@
     function move(local, evt, vp, mirror=1) {
         if(pressedParameter !== null) {
             if(pressedPrior !== null) {
-                console.log("x", pressedPrior)
-                console.log("y", pressedParameter)
                 parameterPriorDistParams[pressedPrior][pressedParameter] = parameters[pressedParameter].clampProject(parameterPriorDistParams[pressedPrior], parameters[pressedParameter].handleUnProject(parameterPriorDistParams[pressedPrior], (mirror*local.x - pressOffset) - parameters[pressedParameter].renderOffset(parameterPriorDistParams[pressedPrior])))
             } else {
                 parameterValues[pressedParameter] = parameters[pressedParameter].clampProject(parameterValues, parameters[pressedParameter].handleUnProject(parameterValues, (mirror*local.x - pressOffset) - parameters[pressedParameter].renderOffset(parameterValues)))
@@ -315,6 +313,15 @@
     .choice-label {
         font-weight: bold;
     }
+
+    summary {
+        cursor: default;
+    }
+
+    hr {
+        border: none;
+        border-top: 1px solid #aaa;
+    }
 </style>
 
 {#snippet meanHandle(color, viewBox, paramName, mean, relativeOffset, showLabel, dist)}
@@ -422,8 +429,27 @@
         <div class="ontop">
             <div class="controls">
                 <h1>Parameter Estimation</h1>
+                <details>
+                    <summary>Introduction</summary>
+                    <p>
+                        The goal in parameter estimation is to summarize observations (samples) and assumtions (priors) in form of model that itself is a distribution. Depending on the kind of distribution various parameters can be adjusted. This is done in a way to fit the observations as best as possible, and in the case of a bayesian perspective also the prior assumptions.
+                    </p>
+                    <p>
+                        The kind of model itself is also an (often discrete) hyper-parameter and can be choosen to best fit the observations and domain knowledge.
+                    </p>
+                    <p>
+                        Click on the yellow shaded area below the horitontal axis on the right to <em>place some sample points</em> as you like. These represent some measurements you have taken. Then select a <em>model distribution</em> and adjust its parameters to fit the sample points as best as possible.
+                    </p>
+                    <p>
+                        Instead of only fitting the sample points, you can also introduce your own assumtions (prior knowledge) into the model building by setting a prior distribution for each parameter. These prior distributions describe how strong you expect a parameter value to in a specific range. For the best effect you configure your priors <em>before you place you sample points</em>.
+                    </p>
+                    <p>
+                        Then when adjusting the model parameters try to <em>not only</em> fit he sample points <em>but also</em> achieve a high probability in your prior distributions.
+                    </p>
+                </details>
+                <hr>
                 <label class="choice-box">
-                    <span class="choice-label">Likelihood Distribution:</span>
+                    <h3><span class="choice-label">Model Distribution:</span></h3>
                     <select bind:value={distType}>
                         {#each Object.entries(distributions) as [c, d]}
                             <option value={c}>{d.name}</option>
@@ -431,7 +457,7 @@
                     </select>
                 </label>
 
-                <h2 class="control-head"><label><input type="color" class="color-swatch" bind:value={distColors[distType]} />Dist. Parameters</label></h2>
+                <h3 class="control-head"><label><input type="color" class="color-swatch" bind:value={distColors[distType]} />Model Parameters</label></h3>
                 {#each currentParameters as param(param)}
                      <div style="display: grid;">
                         <label class="slider-box">
@@ -440,7 +466,7 @@
                         </label>
                         <div class="prior-config">
                             <span class="choice-box">
-                                <span class="choice-label"><input type="color" class="color-swatch" bind:value={paramColors[param]} /> Prior Distribution:</span>
+                                <span class="choice-label"><input type="color" class="color-swatch" bind:value={paramColors[param]} />{parameters[param].symbol} Prior Distribution:</span>
                                 <select bind:value={parameterPriorDistTypes[param]}>
                                     <option value={null}>None</option>
                                     {#each parameters[param].priors as c}
@@ -468,7 +494,7 @@
 
                 {#if !samples.length}
                     <p>
-                        Click on the light orange bar below the horizotal axis to create samples. Samples are required to determine the likelihood of the current parameter values.
+                        Click on the light orange bar below the horizotal axis to create samples. Samples are required to determine the likelihood for the current parameter values.
                     </p>
                 {:else}
                     <p>
@@ -480,7 +506,11 @@
                 <h2 class="control-head">Current Likelihood</h2>
 
                 <p>
-                    Given the set of samples, the likelihood of the the current parameter values is: 
+                    The likelihood is the probability of observing the given data (samples), under the assumtion the choosen parameters. To fit the data as good as possible the parameters are to be adjusted to maximize the likelihood.
+                </p>
+
+                <p>
+                    For the current parameter configuration the likelihood of observing the collected samples is: 
                     <strong> {decimalFormat.format(likelihood)}</strong>
                 </p>
                 {/if}
@@ -488,35 +518,33 @@
                 <h2 class="control-head">Current Prior</h2>
                 {#if paramsWithPrior.length == currentParameters.length}
                 <p>
-                    You have specified prior distributions for all parameters. This corresponds to a baysian appraoch to statistics.
+                    You have specified prior distributions for all parameters. This corresponds to a bayesian appraoch to statistics.
+                </p>
+                <p>
+                    Now try to adjust the model parameters to achieve both a high likelihood, as well as high prior probabilities.
                 </p>
                 {:else if paramsWithPrior.length==0}
                 <p>
                     You have not specified any prior distributions for the parameters. Not specifying any priors corresponds to an frequentist approach to statistics.
                 </p>
                 <p>
-                    Try to specify a prior distribution for each parameter to describe your assumtion regarding the parameters value.
+                    From this perspective the collected data points (samples) are the only influence on the choice of model parameters.
+                </p>
+                <p>
+                    <strong>Try to specify a prior distribution for each parameter to describe your assumtion regarding the parameters value.</strong>
                 </p>
                 {:else}
                 <p>
-                    You have specified prior distributions for some of the parameters. Try to specify priors for all parameters.
+                    You have specified prior distributions for some of the parameters. Now the goal for the adjusting the model parameters is not only to maximize the likelihood, but also the prior probability. This is the bayesian perspective on statistics. 
                 </p>
+                <p>But you have not defined priors for all the parameters yet. Try express your assumptions regarding every single parameter to become a super-bayesian.</p>
                 {/if}
                 {#if currentPrior !== null}
                 <p>
-                    Given the selected prior distributions for the parameters, the prior for current parameter values is is:
+                    Given the selected prior distributions for the parameters, the prior for current parameter values is is:<br>
                     <strong>{decimalFormat.format(currentPrior)}</strong>
                 </p>
                 {/if}
-                
-                <h2 class="control-head">View</h2>
-
-                <div>
-                    <div>Probability Scale:</div>
-                    <label class="radio-label"><input type="radio" value={false} bind:group={logScale} /> Linear</label>
-                    <label class="radio-label"><input type="radio" value={true} bind:group={logScale} /> Log</label>
-                </div>
-    
             </div>
         </div>
         <Canvas viewBox="-400 -400 800 800" preserveAspectRatio="xMidYMid meet" viewport={reactiveVP}>
@@ -552,8 +580,8 @@
                         x1={adapter.visibleMin.x+axisPadding} x2={adapter.visibleMax.x-axisPadding}></line>
                     </g>
                     <g>
-                        <text x={adapter.visibleMax.x-20} y="-10" text-anchor="end">Measurement</text>
-                        <text transform-origin="-5 {adapter.visibleMin.y+20}" transform="rotate(-90)" y={adapter.visibleMin.y+20} x="-5" text-anchor="end">Probability</text>
+                        <text x={adapter.visibleMax.x-20} y="-10" text-anchor="end">Observation</text>
+                        <text transform-origin="-5 {adapter.visibleMin.y+20}" transform="rotate(-90)" y={adapter.visibleMin.y+20} x="-5" text-anchor="end">Model PDF</text>
                     </g>
                     <g>
                         <path class="axis-arrowhead" d="M{adapter.visibleMax.x},0l-10,-5v10z" fill="black" />
@@ -634,7 +662,7 @@
                     <g>
                         <rect cursor="copy" fill-opacity="0.2" fill="#ffaa00" x={adapter.visibleMin.x+axisPadding} y={0}  width={adapter.visibleWidth-2*axisPadding} height={40} onpointerdown={adapter.delegate(addSample)} />
                         <text font-size="0.8em" x={adapter.visibleMax.x - 20} y={20} dominant-baseline="middle" text-anchor="end" fill="#aa6600">(Samples)</text>
-                        <text font-size="0.8em" x={adapter.visibleMax.x - 20} y={60} dominant-baseline="middle" text-anchor="end">(Parameters)</text>
+                        <text font-size="0.8em" x={adapter.visibleMax.x - 20} y={60} dominant-baseline="middle" text-anchor="end">(Model Parameters)</text>
                     </g>
 
                     <g pointer-events="none">
@@ -642,6 +670,8 @@
                         <circle cx={x} cy={20} r="5" fill={color}></circle>
                         <circle cx={x} cy={yScale*currentPdf(x, parameterValues)} r="2" fill={color}></circle>
                         <line x1={x} y1={0} x2={x} y2={yScale*currentPdf(x, parameterValues)} stroke={color}></line>
+                        {:else}
+                        <text  fill="#aa6600" x="0" y="22" font-size="0.8em" dominant-baseline="middle" text-anchor="middle">Click here to add samples</text>
                         {/each}
                     </g>
 
