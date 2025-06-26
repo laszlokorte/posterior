@@ -545,6 +545,11 @@
                     <strong>{decimalFormat.format(currentPrior)}</strong>
                 </p>
                 {/if}
+
+                <hr>
+                <center>
+                    <a href="//tools.laszlokorte.de" title="More Educational Tools">More Educational Tools</a>
+                </center>
             </div>
         </div>
         <Canvas viewBox="-400 -400 800 800" preserveAspectRatio="xMidYMid meet" viewport={reactiveVP}>
